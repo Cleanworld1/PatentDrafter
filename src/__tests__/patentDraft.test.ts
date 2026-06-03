@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseJsonWithFallback, normalizeInventionAnalysis } from "@/lib/jsonSchema";
+import {
+  coerceStringArray,
+  normalizeDrawingPrompts,
+  normalizeInventionAnalysis,
+  parseJsonWithFallback
+} from "@/lib/jsonSchema";
+import { normalizeSpecificationLineBreaks } from "@/lib/sectionOutputSanitizer";
 import { formatSpecificationMarkdown } from "@/lib/markdownFormatter";
 import { createFullDraft } from "@/lib/patentDraftService";
 import type { InventionInput, SpecificationDraft } from "@/types/patentDraft";
@@ -49,6 +55,29 @@ describe("patent draft MVP", () => {
     expect(normalized.technical_field).toBe("AI");
     expect(normalized.title_candidates).toEqual([]);
     expect(normalized.do_not_invent).toEqual([]);
+  });
+
+  it("InventionAnalysis 배열 필드가 문자열·누락이어도 안전하게 정규화한다", () => {
+    const normalized = normalizeInventionAnalysis({
+      title_candidates: "단일 명칭",
+      essential_elements: null,
+      prior_art_problems: ["문제1"]
+    } as unknown as Partial<import("@/types/patentDraft").InventionAnalysis>);
+    expect(normalized.title_candidates).toEqual(["단일 명칭"]);
+    expect(normalized.essential_elements).toEqual([]);
+    expect(coerceStringArray(undefined)).toEqual([]);
+  });
+
+  it("명세서 이중 개행을 단일 개행으로 정리한다", () => {
+    expect(normalizeSpecificationLineBreaks("첫 문장\n\n둘째 문장")).toBe("첫 문장\n둘째 문장");
+  });
+
+  it("도면 프롬프트 배열을 정규화한다", () => {
+    const prompts = normalizeDrawingPrompts([
+      { figure_number: 1, title: "시스템", required_elements: "모듈 A" }
+    ]);
+    expect(prompts[0].required_elements).toEqual(["모듈 A"]);
+    expect(prompts[0].drawing_type).toBe("시스템도");
   });
 
   it("full-draft 서비스가 analyze → generate-spec → review 산출물을 순서대로 만든다", async () => {

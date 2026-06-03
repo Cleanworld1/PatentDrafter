@@ -53,6 +53,9 @@ export interface InventionAnalysis {
   expected_effects: string[];
   claim_points: string[];
   drawing_candidates: string[];
+  visual_material_analysis: string[];
+  document_structure_analysis: string[];
+  table_or_experiment_data_analysis: string[];
   unclear_points: string[];
   do_not_invent: string[];
 }
@@ -70,6 +73,7 @@ export interface DrawingPrompt {
   title: string;
   drawing_type: "시스템도" | "구성도" | "흐름도" | "UI도" | "기계 구조도";
   purpose: string;
+  claim_support?: number[];
   required_elements: string[];
   relative_layout: string;
   arrows_or_connections: string;
@@ -109,6 +113,7 @@ export interface FullDraftResult {
   drawing_prompts: DrawingPrompt[];
   review: SpecificationReview;
   markdown: string;
+  workflow?: import("@/types/patentWorkflow").WorkflowState;
   raw_response?: string;
   error_message?: string;
 }
@@ -117,4 +122,168 @@ export interface GenerateSpecOptions {
   desiredClaimCount: number;
   desiredDrawingCount: number;
   projectName?: string;
+}
+
+export type ProjectStatus =
+  | "before_analysis"
+  | "analysis_complete"
+  | "spec_writing"
+  | "draft_complete";
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  before_analysis: "분석 전",
+  analysis_complete: "분석 완료",
+  spec_writing: "명세서 작성 중",
+  draft_complete: "초안 완료"
+};
+
+export type DetailLevel = "brief" | "normal" | "detailed" | "very_detailed";
+export type ClaimStyle = "broad" | "balanced" | "specific";
+
+export const DETAIL_LEVELS: { value: DetailLevel; label: string }[] = [
+  { value: "brief", label: "간략" },
+  { value: "normal", label: "보통" },
+  { value: "detailed", label: "상세" },
+  { value: "very_detailed", label: "매우 상세" }
+];
+
+export const CLAIM_STYLES: { value: ClaimStyle; label: string }[] = [
+  { value: "broad", label: "넓게" },
+  { value: "balanced", label: "균형" },
+  { value: "specific", label: "구체적으로" }
+];
+
+export interface ProjectRecord {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  status: ProjectStatus;
+}
+
+export interface TextInputs {
+  overview: string;
+  coreIdea: string;
+  existingProblems: string;
+  differentiators: string;
+  embodimentNotes: string;
+  otherNotes: string;
+}
+
+export type AiInputMode =
+  | "native_file"
+  | "image_input"
+  | "pdf_input"
+  | "document_input"
+  | "spreadsheet_input"
+  | "text_fallback";
+
+export type MaterialSourceType =
+  | "invention_proposal"
+  | "business_plan"
+  | "meeting_note"
+  | "experiment_data"
+  | "drawing"
+  | "prior_specification"
+  | "etc";
+
+export type FileProcessingStatus =
+  | "preparing"
+  | "native_ready"
+  | "fallback_ready"
+  | "unsupported"
+  | "error";
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  extension: string;
+  materialType: MaterialType;
+  sourceType: MaterialSourceType;
+  aiInputMode: AiInputMode;
+  fileObjectRef: string;
+  extractedText: string;
+  analysisNotes: string;
+  fallbackUsed: boolean;
+  status: FileProcessingStatus;
+}
+
+export interface DraftOptions {
+  claimCount: number;
+  drawingCount: number;
+  inventionType: InventionType;
+  detailLevel: DetailLevel;
+  claimStyle: ClaimStyle;
+  autoRecommendDrawingType: boolean;
+  generateAdditionalQuestions: boolean;
+}
+
+export interface SpecificationSection {
+  section_id: string;
+  title: string;
+  content: string;
+  isGenerating: boolean;
+  lastUpdatedAt: string;
+  isModified?: boolean;
+  /** 추가 직후 AI 미작성 초안 */
+  isDraft?: boolean;
+  /** 청구항·도면 변경 후 검토 필요 */
+  needsReview?: boolean;
+  /** 검토 시 「보완 작성」 버튼 (기존 본문 유지·추가만) */
+  reviewSupplement?: boolean;
+  reviewMeta?: {
+    cause?: "claim" | "drawing";
+    addedClaimNumbers?: number[];
+    addedFigureNumbers?: number[];
+  };
+}
+
+export type WorkspaceTab =
+  | "spec_edit"
+  | "analysis"
+  | "claims"
+  | "drawings"
+  | "review"
+  | "markdown"
+  | "json";
+
+export const WORKSPACE_TABS: { id: WorkspaceTab; label: string }[] = [
+  { id: "spec_edit", label: "명세서 편집" },
+  { id: "analysis", label: "발명 분석표" },
+  { id: "claims", label: "청구항" },
+  { id: "drawings", label: "도면 프롬프트" },
+  { id: "review", label: "정합성 검토" },
+  { id: "markdown", label: "전체 Markdown" },
+  { id: "json", label: "원본 데이터" }
+];
+
+export type LoadingStage =
+  | ""
+  | "analyze"
+  | "claims"
+  | "drawing_plan"
+  | "drawing_prompts"
+  | "claim_drawing_review"
+  | "detailed"
+  | "front"
+  | "generate"
+  | "review"
+  | "full"
+  | "refine";
+
+export interface PatentDraftSnapshot {
+  currentProject: ProjectRecord;
+  input: InventionInput;
+  textInputs: TextInputs;
+  uploadedFiles: UploadedFile[];
+  options: DraftOptions;
+  analysis: InventionAnalysis | null;
+  workflow: import("@/types/patentWorkflow").WorkflowState;
+  specificationSections: SpecificationSection[];
+  claims: ClaimDraft[];
+  drawingPrompts: DrawingPrompt[];
+  review: SpecificationReview | null;
+  markdown: string;
 }
