@@ -65,7 +65,8 @@ export async function analyzeInvention(
         detailLevel: "normal",
         claimStyle: "balanced",
         autoRecommendDrawingType: true,
-        generateAdditionalQuestions: true
+        generateAdditionalQuestions: true,
+        inventionMakingEnabled: false
       },
       materials: []
     },
@@ -258,7 +259,8 @@ export async function createFullDraft(
 
       autoRecommendDrawingType: true,
 
-      generateAdditionalQuestions: true
+      generateAdditionalQuestions: true,
+      inventionMakingEnabled: false
 
     },
 

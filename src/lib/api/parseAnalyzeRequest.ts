@@ -3,9 +3,9 @@ import "server-only";
 import { parseOpenAiFromFormData, parseOpenAiFromJsonBody } from "@/lib/api/parseOpenAiCredentials";
 import type { IncomingMaterialFile } from "@/lib/ai/patentDraftAiService";
 import type { AnalyzeMaterialsPayload } from "@/lib/fileInput/fileInputTypes";
-import type { DraftOptions, MaterialType, TextInputs } from "@/types/patentDraft";
+import { defaultDraftOptions, mergeDraftOptions } from "@/lib/defaultDraftOptions";
 import { INVENTION_TYPES, MATERIAL_TYPES } from "@/types/patentDraft";
-import type { InventionInput } from "@/types/patentDraft";
+import type { InventionInput, MaterialType, TextInputs } from "@/types/patentDraft";
 import type { OpenAiCredentialInput } from "@/types/openAiCredentials";
 
 export type ParsedAnalyzeRequest =
@@ -37,18 +37,6 @@ function defaultTextInputs(): TextInputs {
   };
 }
 
-function defaultOptions(): DraftOptions {
-  return {
-    claimCount: 5,
-    drawingCount: 5,
-    inventionType: "자동 판단",
-    detailLevel: "normal",
-    claimStyle: "balanced",
-    autoRecommendDrawingType: true,
-    generateAdditionalQuestions: true
-  };
-}
-
 export async function parseAnalyzeRequest(request: Request): Promise<ParsedAnalyzeRequest> {
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -68,7 +56,7 @@ export async function parseAnalyzeRequest(request: Request): Promise<ParsedAnaly
       task: "analyze_invention_materials",
       projectName: "새 명세서",
       userTextInputs: defaultTextInputs(),
-      options: defaultOptions(),
+      options: defaultDraftOptions(),
       materials: []
     }
   );
@@ -108,6 +96,8 @@ export async function parseAnalyzeRequest(request: Request): Promise<ParsedAnaly
       materialType: "기타"
     });
   }
+
+  payload.options = mergeDraftOptions(payload.options);
 
   if (payload.options.inventionType && !INVENTION_TYPES.includes(payload.options.inventionType)) {
     payload.options.inventionType = "자동 판단";

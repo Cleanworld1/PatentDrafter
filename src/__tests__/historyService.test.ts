@@ -43,7 +43,8 @@ function minimalSnapshot(id: string, title: string): PatentDraftSnapshot {
       detailLevel: "normal",
       claimStyle: "balanced",
       autoRecommendDrawingType: true,
-      generateAdditionalQuestions: true
+      generateAdditionalQuestions: true,
+      inventionMakingEnabled: false
     },
     analysis: null,
     workflow: {

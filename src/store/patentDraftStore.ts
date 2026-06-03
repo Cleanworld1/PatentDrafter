@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { defaultDraftOptions } from "@/lib/defaultDraftOptions";
 import { buildJsonWithOpenAi } from "@/lib/client/appendOpenAiFields";
 import { buildMaterialsFormData } from "@/lib/client/buildAnalyzeFormData";
 import { formatFetchError, parseApiErrorResponse } from "@/lib/client/parseApiError";
@@ -77,16 +78,7 @@ function defaultTextInputs(): TextInputs {
 }
 
 function defaultOptions(): DraftOptions {
-  return {
-    claimCount: 5,
-    drawingCount: 5,
-    inventionType: "자동 판단",
-    detailLevel: "normal",
-    claimStyle: "balanced",
-    autoRecommendDrawingType: true,
-    generateAdditionalQuestions: true,
-    inventionMakingEnabled: false
-  };
+  return defaultDraftOptions();
 }
 
 function buildInventionContent(textInputs: TextInputs): string {

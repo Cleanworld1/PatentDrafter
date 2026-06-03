@@ -1,3 +1,4 @@
+import { defaultDraftOptions, mergeDraftOptions } from "@/lib/defaultDraftOptions";
 import { parseOpenAiFromJsonBody } from "@/lib/api/parseOpenAiCredentials";
 import type { ClaimDraft, DraftOptions, DrawingPrompt, InventionAnalysis } from "@/types/patentDraft";
 import type { OpenAiCredentialInput } from "@/types/openAiCredentials";
@@ -51,15 +52,5 @@ export function resolveProjectName(body: WorkflowJsonBody): string {
 }
 
 export function resolveOptions(body: WorkflowJsonBody): DraftOptions {
-  return (
-    body.options ?? {
-      claimCount: 5,
-      drawingCount: 5,
-      inventionType: "자동 판단",
-      detailLevel: "normal",
-      claimStyle: "balanced",
-      autoRecommendDrawingType: true,
-      generateAdditionalQuestions: true
-    }
-  );
+  return mergeDraftOptions(body.options);
 }

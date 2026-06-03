@@ -20,7 +20,8 @@ const defaultOptions: DraftOptions = {
   detailLevel: "normal",
   claimStyle: "balanced",
   autoRecommendDrawingType: true,
-  generateAdditionalQuestions: true
+  generateAdditionalQuestions: true,
+  inventionMakingEnabled: false
 };
 
 function sampleInput(projectName: string, content: string): InventionInput {
