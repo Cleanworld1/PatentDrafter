@@ -31,6 +31,8 @@ export interface InventionInput {
   desiredClaimCount: number;
   desiredDrawingCount: number;
   inventionType: InventionType;
+  /** 발명 메이킹: 자료 기반 적극 확장·구체화 */
+  inventionMakingEnabled?: boolean;
 }
 
 export interface InventionAnalysis {
@@ -218,6 +220,8 @@ export interface DraftOptions {
   claimStyle: ClaimStyle;
   autoRecommendDrawingType: boolean;
   generateAdditionalQuestions: boolean;
+  /** 직접 입력 기술 내용을 바탕으로 발명을 확장·구체화 */
+  inventionMakingEnabled: boolean;
 }
 
 export interface SpecificationSection {

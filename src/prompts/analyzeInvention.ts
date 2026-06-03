@@ -1,3 +1,7 @@
+import {
+  getInventionAnalysisModeNotes,
+  getInventionMakingRulesBlock
+} from "@/knowledge/inventionMakingRules";
 import type { PreparedAiInput } from "@/lib/fileInput/fileInputTypes";
 import type { InventionInput } from "@/types/patentDraft";
 
@@ -32,6 +36,7 @@ export function buildAnalyzeInventionPrompt(
   input: InventionInput,
   prepared: PreparedAiInput[] = []
 ): string {
+  const inventionMaking = Boolean(input.inventionMakingEnabled);
   const fileList =
     prepared.length > 0
       ? prepared
@@ -60,17 +65,19 @@ export function buildAnalyzeInventionPrompt(
 분석 목적은 단순 요약이 아니라, 청구항으로 보호받을 수 있는 기술적 구성을 도출하는 것이다.
 
 주의:
-- 자료에 없는 구체적 수치, 성능 개선율, 실험결과는 만들지 말라.
-- 그림에서 명확하지 않은 구성은 단정하지 말고 "추정" 또는 "확인 필요"로 표시하라.
+${getInventionAnalysisModeNotes(inventionMaking)}
 - PDF/PPT의 시각 자료와 텍스트 설명이 충돌하는 경우 충돌 사항을 unclear_points에 기재하라.
 - 청구항으로 보호받을 수 있는 구성 중심으로 분석하라.
 - fallback 텍스트만 제공된 자료는 "텍스트 추출 기반 분석"임을 인지하되, 가능한 한 원본 구조를 추정하지 말고 텍스트에 기재된 범위 내에서 분석하라.
+
+${getInventionMakingRulesBlock(inventionMaking)}
 
 반드시 JSON만 출력하라.
 
 프로젝트명: ${input.projectName}
 자료 유형: ${input.materialType}
 발명의 유형: ${input.inventionType}
+발명 메이킹: ${inventionMaking ? "활성" : "비활성"}
 발명의 내용(직접 입력): ${input.inventionContent || "(없음)"}
 
 업로드 자료 처리 방식:

@@ -19,6 +19,7 @@ export interface RegenerateSectionInput {
   relatedClaims?: ClaimDraft[];
   userInstruction?: string;
   drawingContext?: CurrentDrawingContext;
+  inventionMakingEnabled?: boolean;
 }
 
 function mockSectionContent(input: RegenerateSectionInput): string {

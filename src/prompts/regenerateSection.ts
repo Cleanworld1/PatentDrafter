@@ -1,3 +1,4 @@
+import { getInventionMakingRegenerateNote, getInventionMakingRulesBlock, getInventionMakingSectionNote } from "@/knowledge/inventionMakingRules";
 import { getPatentExaminerRulesBlock } from "@/knowledge/patentExaminerDraftingRules";
 import { getPatentLineBreakRulesBlock } from "@/knowledge/patentLineBreakRules";
 import { getSectionGuideline } from "@/knowledge/patentSectionGuidelines";
@@ -17,6 +18,7 @@ export interface RegenerateSectionPromptInput {
   analysis: InventionAnalysis;
   relatedClaims?: ClaimDraft[];
   userInstruction?: string;
+  inventionMakingEnabled?: boolean;
   /** 명세서 편집기에 있는 현재 도면 목록·개수 */
   drawingContext?: CurrentDrawingContext;
 }
@@ -62,13 +64,17 @@ ${getPatentExaminerRulesBlock(input.sectionType)}
 
 ${getPatentLineBreakRulesBlock()}
 
+${getInventionMakingRulesBlock(input.inventionMakingEnabled)}
+
+${getInventionMakingSectionNote(input.sectionType, input.inventionMakingEnabled)}
+
 위 정보를 바탕으로 대상 항목만 다시 작성하라.
 
 주의:
 - 다른 항목은 출력하지 말라.
 - 현재 내용의 장점을 유지하되, 사용자 요청에 맞게 보완하라.
 - 청구항과 용어가 일치하도록 작성하라.
-- 입력자료에 없는 수치, 실험결과, 성능 개선율은 만들지 말라.
+${getInventionMakingRegenerateNote(input.inventionMakingEnabled)}
 - 국내 특허명세서 문체를 사용하라.
 - 심사관 관점 필수 규칙을 최우선으로 적용하라.
 ${getSectionOutputNoHeadingRule(input.sectionTitle)}

@@ -84,7 +84,8 @@ function defaultOptions(): DraftOptions {
     detailLevel: "normal",
     claimStyle: "balanced",
     autoRecommendDrawingType: true,
-    generateAdditionalQuestions: true
+    generateAdditionalQuestions: true,
+    inventionMakingEnabled: false
   };
 }
 
@@ -123,7 +124,8 @@ function buildInventionInput(
     materialType: primaryMaterial,
     desiredClaimCount: options.claimCount,
     desiredDrawingCount: options.drawingCount,
-    inventionType: options.inventionType
+    inventionType: options.inventionType,
+    inventionMakingEnabled: options.inventionMakingEnabled
   };
 }
 
@@ -359,7 +361,8 @@ async function callRegenerateSection(
       drawingContext: buildCurrentDrawingContext(
         state.specificationSections,
         state.drawingPrompts
-      )
+      ),
+      inventionMakingEnabled: state.options.inventionMakingEnabled
     })
   });
   if (!response.ok) {
@@ -707,7 +710,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         input: snapshot.input,
         textInputs: snapshot.textInputs,
         uploadedFiles,
-        options: snapshot.options,
+        options: { ...defaultOptions(), ...snapshot.options },
         analysis: snapshot.analysis ? normalizeInventionAnalysis(snapshot.analysis) : null,
         workflow: snapshot.workflow ?? createEmptyWorkflowState(),
         specificationSections:

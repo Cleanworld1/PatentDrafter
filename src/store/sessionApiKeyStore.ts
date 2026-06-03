@@ -9,6 +9,10 @@ interface OpenAiSessionState {
   serverFallbackAvailable: boolean;
   devMockAllowed: boolean;
   suggestedModel: string;
+  envProjectConfigured: boolean;
+  envOrganizationConfigured: boolean;
+  configLoaded: boolean;
+  configError: string | null;
 
   setSelectedModel: (model: string) => void;
   setCustomModel: (model: string) => void;
@@ -17,7 +21,10 @@ interface OpenAiSessionState {
     serverFallbackAvailable: boolean;
     devMockAllowed?: boolean;
     suggestedModel: string;
+    envProjectConfigured?: boolean;
+    envOrganizationConfigured?: boolean;
   }) => void;
+  setConfigLoadState: (state: { configLoaded: boolean; configError: string | null }) => void;
   getModelForRequest: () => string;
   canRunAi: () => boolean;
 }
@@ -29,6 +36,10 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
   serverFallbackAvailable: false,
   devMockAllowed: false,
   suggestedModel: DEFAULT_MODEL,
+  envProjectConfigured: false,
+  envOrganizationConfigured: false,
+  configLoaded: false,
+  configError: null,
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
@@ -36,13 +47,23 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
 
   setUseCustomModel: (useCustomModel) => set({ useCustomModel }),
 
-  setServerConfig: ({ serverFallbackAvailable, devMockAllowed, suggestedModel }) =>
+  setServerConfig: ({
+    serverFallbackAvailable,
+    devMockAllowed,
+    suggestedModel,
+    envProjectConfigured,
+    envOrganizationConfigured
+  }) =>
     set({
       serverFallbackAvailable,
       devMockAllowed: Boolean(devMockAllowed),
       suggestedModel,
+      envProjectConfigured: Boolean(envProjectConfigured),
+      envOrganizationConfigured: Boolean(envOrganizationConfigured),
       selectedModel: get().selectedModel === DEFAULT_MODEL ? suggestedModel : get().selectedModel
     }),
+
+  setConfigLoadState: ({ configLoaded, configError }) => set({ configLoaded, configError }),
 
   getModelForRequest: () => {
     const state = get();

@@ -5,6 +5,7 @@ import {
   getSpecificationStyleRules,
   type PatentSectionGuidelines
 } from "@/knowledge/patentSectionGuidelines";
+import { getInventionMakingRulesBlock } from "@/knowledge/inventionMakingRules";
 import type { DraftOptions, GenerateSpecOptions, InventionAnalysis } from "@/types/patentDraft";
 
 export interface GenerateSpecificationPromptInput {
@@ -28,6 +29,10 @@ export function buildGenerateSpecificationPrompt(input: GenerateSpecificationPro
   const { analysis } = input;
   const options = normalizeSpecOptions(input.options);
   const guidelines = input.sectionGuidelines ?? getAllSectionGuidelines();
+  const inventionMaking =
+    "inventionMakingEnabled" in input.options
+      ? Boolean((input.options as DraftOptions).inventionMakingEnabled)
+      : false;
 
   return `당신은 국내 특허출원용 명세서 초안 작성 보조자입니다. 발명 분석표를 바탕으로 명세서 초안 JSON만 출력하십시오.
 
@@ -40,6 +45,8 @@ ${getSectionGuidelinesSummary()}
 
 [항목별 상세 작성 지침]
 ${getFullSectionGuidelinesText()}
+
+${getInventionMakingRulesBlock(inventionMaking)}
 
 요구 청구항 수: ${options.desiredClaimCount}
 요구 도면 수: ${options.desiredDrawingCount}

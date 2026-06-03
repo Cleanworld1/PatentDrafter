@@ -63,7 +63,8 @@ export function buildLegacyInventionInput(
     materialType: payload.materials[0]?.materialType ?? "발명제안서",
     desiredClaimCount: payload.options.claimCount,
     desiredDrawingCount: payload.options.drawingCount,
-    inventionType: payload.options.inventionType
+    inventionType: payload.options.inventionType,
+    inventionMakingEnabled: payload.options.inventionMakingEnabled ?? false
   };
 }
 
