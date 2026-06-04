@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { HistoryItem } from "@/components/history/HistoryItem";
 import { listHistory, searchHistory } from "@/lib/historyService";
+import { useMobileShellStore } from "@/store/mobileShellStore";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 
 export function HistoryList() {
@@ -12,6 +13,7 @@ export function HistoryList() {
   const historyVersion = usePatentDraftStore((s) => s.historyVersion);
   const loadProject = usePatentDraftStore((s) => s.loadProject);
   const deleteHistoryProject = usePatentDraftStore((s) => s.deleteHistoryProject);
+  const closeSidebar = useMobileShellStore((s) => s.closeSidebar);
 
   useEffect(() => {
     setMounted(true);
@@ -41,7 +43,10 @@ export function HistoryList() {
               key={entry.id}
               entry={entry}
               isActive={entry.id === currentId}
-              onSelect={() => loadProject(entry.snapshot)}
+              onSelect={() => {
+                loadProject(entry.snapshot);
+                closeSidebar();
+              }}
               onDelete={() => deleteHistoryProject(entry.id)}
             />
           ))
