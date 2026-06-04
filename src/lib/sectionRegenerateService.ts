@@ -20,6 +20,7 @@ export interface RegenerateSectionInput {
   userInstruction?: string;
   drawingContext?: CurrentDrawingContext;
   inventionMakingEnabled?: boolean;
+  chemicalInventionEnabled?: boolean;
 }
 
 function mockSectionContent(input: RegenerateSectionInput): string {

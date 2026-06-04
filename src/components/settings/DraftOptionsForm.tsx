@@ -1,11 +1,14 @@
 "use client";
 
+import { CHEMICAL_INVENTION_MODE_LABEL } from "@/knowledge/chemicalInventionRules";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 import { CLAIM_STYLES, DETAIL_LEVELS, INVENTION_TYPES } from "@/types/patentDraft";
 
 export function DraftOptionsForm() {
   const options = usePatentDraftStore((s) => s.options);
   const setOptions = usePatentDraftStore((s) => s.setOptions);
+  const chemicalInventionEnabled = options.chemicalInventionEnabled;
+  const inventionMakingEnabled = options.inventionMakingEnabled;
 
   return (
     <div className="settings-card">
@@ -24,6 +27,32 @@ export function DraftOptionsForm() {
             ))}
           </select>
         </label>
+
+        <div className="invention-making-row">
+          <div className="invention-making-copy">
+            <span className="invention-making-label">{CHEMICAL_INVENTION_MODE_LABEL}</span>
+            <p className="settings-card-hint">
+              활성화하면 화학·소재·공정 발명에 맞춰 실시예, 수치범위, 측정방법, 비교예, HTML 표 등
+              특허 실무 지침을 명세서 작성·보완 시 적용합니다.
+              {chemicalInventionEnabled && inventionMakingEnabled && (
+                <>
+                  {" "}
+                  발명 메이킹과 함께 켜면 실험예·비교예·수치한정(범위 내·외 임계 효과)을 담은 HTML 표
+                  2~3개를 【구체적인 내용】에 포함하도록 생성합니다.
+                </>
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            className={`chemical-invention-toggle${chemicalInventionEnabled ? " is-on" : ""}`}
+            onClick={() => setOptions({ chemicalInventionEnabled: !chemicalInventionEnabled })}
+            aria-pressed={chemicalInventionEnabled}
+            title={chemicalInventionEnabled ? "화학 발명 끄기" : "화학 발명 켜기"}
+          >
+            {chemicalInventionEnabled ? "활성" : "비활성"}
+          </button>
+        </div>
 
         <label className="option-field">
           <span>청구항 수 (1–20)</span>

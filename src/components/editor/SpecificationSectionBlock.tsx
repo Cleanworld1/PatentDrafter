@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { getReviewNoticeForSection } from "@/lib/claimDrawingImpact";
+import { SpecSectionEditor } from "@/components/editor/SpecSectionEditor";
 import { SectionActionMenu } from "@/components/editor/SectionActionMenu";
 import type { SpecificationSection } from "@/types/patentDraft";
 
@@ -11,15 +11,6 @@ interface SpecificationSectionBlockProps {
 }
 
 export function SpecificationSectionBlock({ section, onContentChange }: SpecificationSectionBlockProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const isFocused = useRef(false);
-
-  useEffect(() => {
-    if (contentRef.current && !isFocused.current) {
-      contentRef.current.innerText = section.content;
-    }
-  }, [section.content, section.isGenerating]);
-
   const blockClass = [
     "spec-section-block",
     section.isModified ? "modified" : "",
@@ -64,19 +55,7 @@ export function SpecificationSectionBlock({ section, onContentChange }: Specific
           내용이 비어 있습니다. 상단 「작성」 버튼을 눌러 AI 초안을 생성하세요.
         </p>
       ) : (
-        <div
-          ref={contentRef}
-          className="spec-section-content"
-          contentEditable
-          suppressContentEditableWarning
-          onFocus={() => {
-            isFocused.current = true;
-          }}
-          onBlur={(e) => {
-            isFocused.current = false;
-            onContentChange(e.currentTarget.innerText);
-          }}
-        />
+        <SpecSectionEditor content={section.content} onContentChange={onContentChange} />
       )}
     </div>
   );

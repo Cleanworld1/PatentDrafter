@@ -12,11 +12,21 @@ import { MarkdownTab } from "@/components/tabs/MarkdownTab";
 import { RawDataTab } from "@/components/tabs/RawDataTab";
 import { WorkspaceTabActions } from "@/components/tabs/WorkspaceTabActions";
 import { useSaveShortcut } from "@/lib/client/useSaveShortcut";
+import { useSpecEditorViewportStore } from "@/store/specEditorViewportStore";
+import { useEffect } from "react";
 
 export function WorkspaceTabs() {
   useSaveShortcut();
   const activeTab = usePatentDraftStore((s) => s.activeTab);
   const setActiveTab = usePatentDraftStore((s) => s.setActiveTab);
+  const fullscreen = useSpecEditorViewportStore((s) => s.fullscreen);
+  const setFullscreen = useSpecEditorViewportStore((s) => s.setFullscreen);
+
+  useEffect(() => {
+    if (activeTab !== "spec_edit" && fullscreen) {
+      setFullscreen(false);
+    }
+  }, [activeTab, fullscreen, setFullscreen]);
   const error = usePatentDraftStore((s) => s.error);
   const loadingStage = usePatentDraftStore((s) => s.loadingStage);
 

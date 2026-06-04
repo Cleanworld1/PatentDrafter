@@ -116,7 +116,8 @@ export function getMockHistoryEntries(): HistoryEntry[] {
           claimStyle: "balanced",
           autoRecommendDrawingType: true,
           generateAdditionalQuestions: true,
-          inventionMakingEnabled: false
+          inventionMakingEnabled: false,
+          chemicalInventionEnabled: false
         },
         analysis: null,
         workflow: {

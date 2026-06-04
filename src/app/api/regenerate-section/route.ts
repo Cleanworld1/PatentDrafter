@@ -21,6 +21,7 @@ interface RegenerateSectionBody {
   userInstruction?: string;
   drawingContext?: CurrentDrawingContext;
   inventionMakingEnabled?: boolean;
+  chemicalInventionEnabled?: boolean;
   openAiApiKey?: string;
   model?: string;
 }
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
         relatedClaims: body.relatedClaims,
         userInstruction: body.userInstruction,
         drawingContext: body.drawingContext,
-        inventionMakingEnabled: body.inventionMakingEnabled
+        inventionMakingEnabled: body.inventionMakingEnabled,
+        chemicalInventionEnabled: body.chemicalInventionEnabled
       },
       credentials
     );

@@ -21,7 +21,8 @@ const defaultOptions: DraftOptions = {
   claimStyle: "balanced",
   autoRecommendDrawingType: true,
   generateAdditionalQuestions: true,
-  inventionMakingEnabled: false
+  inventionMakingEnabled: false,
+  chemicalInventionEnabled: false
 };
 
 function sampleInput(projectName: string, content: string): InventionInput {

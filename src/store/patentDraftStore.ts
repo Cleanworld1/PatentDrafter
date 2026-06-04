@@ -354,7 +354,8 @@ async function callRegenerateSection(
         state.specificationSections,
         state.drawingPrompts
       ),
-      inventionMakingEnabled: state.options.inventionMakingEnabled
+      inventionMakingEnabled: state.options.inventionMakingEnabled,
+      chemicalInventionEnabled: state.options.chemicalInventionEnabled
     })
   });
   if (!response.ok) {

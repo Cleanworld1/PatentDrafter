@@ -5,8 +5,24 @@ import {
   getSpecificationStyleRules,
   type PatentSectionGuidelines
 } from "@/knowledge/patentSectionGuidelines";
+import { getChemicalInventionRulesBlock } from "@/knowledge/chemicalInventionRules";
+import { getChemicalInventionMakingCombinedBlock } from "@/knowledge/chemicalInventionMakingRules";
 import { getInventionMakingRulesBlock } from "@/knowledge/inventionMakingRules";
 import type { DraftOptions, GenerateSpecOptions, InventionAnalysis } from "@/types/patentDraft";
+
+function readSpecModeFlags(options: GenerateSpecOptions | DraftOptions): {
+  inventionMaking: boolean;
+  chemicalInvention: boolean;
+} {
+  if (!("inventionMakingEnabled" in options) && !("chemicalInventionEnabled" in options)) {
+    return { inventionMaking: false, chemicalInvention: false };
+  }
+  const draft = options as DraftOptions;
+  return {
+    inventionMaking: Boolean(draft.inventionMakingEnabled),
+    chemicalInvention: Boolean(draft.chemicalInventionEnabled)
+  };
+}
 
 export interface GenerateSpecificationPromptInput {
   analysis: InventionAnalysis;
@@ -29,10 +45,7 @@ export function buildGenerateSpecificationPrompt(input: GenerateSpecificationPro
   const { analysis } = input;
   const options = normalizeSpecOptions(input.options);
   const guidelines = input.sectionGuidelines ?? getAllSectionGuidelines();
-  const inventionMaking =
-    "inventionMakingEnabled" in input.options
-      ? Boolean((input.options as DraftOptions).inventionMakingEnabled)
-      : false;
+  const { inventionMaking, chemicalInvention } = readSpecModeFlags(input.options);
 
   return `당신은 국내 특허출원용 명세서 초안 작성 보조자입니다. 발명 분석표를 바탕으로 명세서 초안 JSON만 출력하십시오.
 
@@ -47,6 +60,10 @@ ${getSectionGuidelinesSummary()}
 ${getFullSectionGuidelinesText()}
 
 ${getInventionMakingRulesBlock(inventionMaking)}
+
+${getChemicalInventionRulesBlock(chemicalInvention)}
+
+${getChemicalInventionMakingCombinedBlock(inventionMaking, chemicalInvention)}
 
 요구 청구항 수: ${options.desiredClaimCount}
 요구 도면 수: ${options.desiredDrawingCount}

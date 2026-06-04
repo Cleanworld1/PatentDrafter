@@ -237,7 +237,9 @@ npm run build
 | `OPENAI_PROJECT_ID` | 권장 | `proj_…` (proj Key 사용 시) |
 | `OPENAI_ORG_ID` | 선택 | 조직 ID |
 | `ALLOW_MOCK_WITHOUT_OPENAI_KEY` | 선택 | production에서는 `false` 권장 |
-| `NEXT_PUBLIC_NANO_BANANA_URL` | 선택 | 도면 생성 버튼 URL |
+| `GEMINI_API_KEY` | 도면 자동 생성 시 | Google AI Studio API Key (Nano Banana 2) |
+| `GEMINI_IMAGE_MODEL` | 선택 | 기본 `gemini-3.1-flash-image` |
+| `NEXT_PUBLIC_NANO_BANANA_URL` | 선택 | Key 없을 때 AI Studio URL |
 
 `.env.local`은 Vercel에 올라가지 않습니다. Vercel 대시보드 → Project → Settings → Environment Variables에서 설정하세요.
 
@@ -251,9 +253,21 @@ npx vercel --prod
 
 또는 Vercel 대시보드에서 GitHub `PatentDrafter` 저장소를 Import → main(또는 작업 브랜치) 연결 → Deploy.
 
-### 4. 주의
+### 4. Gemini 도면 생성 (Nano Banana 2)
+
+1. [Google AI Studio](https://aistudio.google.com/apikey)에서 API Key 발급 (이미지 모델은 **유료 결제가 연결된 Key**가 필요할 수 있음).
+2. Vercel → **Settings → Environment Variables**에 추가:
+   - `GEMINI_API_KEY` = 발급한 Key (Production·Preview·Development 모두 체크 권장)
+   - (선택) `GEMINI_IMAGE_MODEL` = `gemini-3.1-flash-image`
+3. **Redeploy** 후 우측 패널 「도면 생성 (Nano Banana 2)」에 **서버 Key 연결됨**이 보이면, 【도 N】의 **도면 생성** 버튼이 앱에서 이미지를 만들고 PNG로 내려받습니다.
+4. Key가 없으면 이전과 같이 프롬프트 복사 + AI Studio 탭이 열립니다.
+
+로컬: `.env.local`에 동일 변수를 넣고 `npm run dev`를 재시작하세요.
+
+### 5. 주의
 
 - `analyze` / `full-draft` / `regenerate-section` API는 최대 **300초** 실행을 가정합니다. Vercel **Pro** 플랜(또는 동등한 함수 시간 한도)이 필요할 수 있습니다.
+- `generate-drawing-image`는 최대 **120초**입니다.
 - 작업 히스토리는 브라우저 `localStorage`에만 저장됩니다(서버 DB 없음).
 
 ## 남은 TODO

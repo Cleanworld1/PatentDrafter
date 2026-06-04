@@ -222,6 +222,8 @@ export interface DraftOptions {
   generateAdditionalQuestions: boolean;
   /** 직접 입력 기술 내용을 바탕으로 발명을 확장·구체화 */
   inventionMakingEnabled: boolean;
+  /** 화학·소재·공정 발명 명세서 실무 지침 적용 */
+  chemicalInventionEnabled: boolean;
 }
 
 export interface SpecificationSection {

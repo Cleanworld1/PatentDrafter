@@ -316,6 +316,7 @@ select {
   background: var(--white);
   border-left: 1px solid var(--border);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -685,6 +686,30 @@ button:disabled,
   filter: brightness(0.98);
 }
 
+.chemical-invention-toggle {
+  flex-shrink: 0;
+  min-width: 64px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.chemical-invention-toggle.is-on {
+  background: #eff6ff;
+  border-color: #60a5fa;
+  color: #1d4ed8;
+}
+
+.chemical-invention-toggle:hover {
+  filter: brightness(0.98);
+}
+
 .checkbox-field {
   flex-direction: row;
   align-items: center;
@@ -875,6 +900,12 @@ button:disabled,
 .workspace-tab-icon-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.workspace-tab-icon-btn.is-active {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: #eff6ff;
 }
 
 .workspace-tabs button {
@@ -1091,10 +1122,120 @@ button:disabled,
   max-height: 100%;
 }
 
+/* 명세서 편집기 — 전체화면 */
+body.spec-editor-fullscreen-active {
+  overflow: hidden;
+}
+
+body.spec-editor-fullscreen-active .sidebar,
+body.spec-editor-fullscreen-active .workspace-header,
+body.spec-editor-fullscreen-active .settings-panel,
+body.spec-editor-fullscreen-active .workspace-tabs-bar,
+body.spec-editor-fullscreen-active .loading-banner,
+body.spec-editor-fullscreen-active .error-banner {
+  display: none !important;
+}
+
+body.spec-editor-fullscreen-active .app-shell {
+  display: block;
+}
+
+body.spec-editor-fullscreen-active .main-workspace {
+  height: 100vh;
+}
+
+body.spec-editor-fullscreen-active .workspace-body {
+  height: 100%;
+}
+
+body.spec-editor-fullscreen-active .workspace-editor-area {
+  height: 100%;
+}
+
+body.spec-editor-fullscreen-active .workspace-tabs-container {
+  height: 100%;
+}
+
+body.spec-editor-fullscreen-active .tab-content {
+  height: 100%;
+  overflow: hidden;
+}
+
+.spec-editor-wrapper.is-fullscreen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  background: #e2e8f0;
+}
+
+.spec-fullscreen-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  padding: 10px 20px;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 13px;
+}
+
+.spec-fullscreen-title {
+  font-weight: 700;
+}
+
+.spec-fullscreen-zoom {
+  font-weight: 600;
+  color: #93c5fd;
+}
+
+.spec-fullscreen-hint {
+  flex: 1;
+  min-width: 12rem;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.spec-fullscreen-exit {
+  border: 1px solid #475569;
+  background: #334155;
+  color: #f8fafc;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.spec-fullscreen-exit:hover {
+  background: #475569;
+}
+
+.spec-editor-zoom-viewport {
+  flex: 1;
+  min-height: 0;
+  /* 세로 스크롤은 .tab-content 한 곳만 — 줌 뷰포트에 overflow:auto 주면 스크롤바 2개 */
+  overflow: visible;
+  width: 100%;
+}
+
+.spec-editor-zoom-viewport--fullscreen {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 24px 32px;
+}
+
+.spec-editor-zoom-inner {
+  width: 100%;
+}
+
 /* Specification Editor */
 .spec-editor-wrapper {
   background: var(--bg);
-  min-height: 100%;
+  /* min-height:100% 제거 — tab-content와 이중 세로 스크롤 방지 */
   padding: 24px 16px 48px;
 }
 
@@ -1388,10 +1529,47 @@ button:disabled,
   font-size: 14px;
 }
 
+.spec-section-editor-host {
+  position: relative;
+  max-width: 100%;
+}
+
+.spec-section-scroll-clip {
+  overflow-x: hidden;
+  overflow-y: visible;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  max-width: 100%;
+}
+
+.spec-section-scroll-clip:has(.spec-section-content:focus) {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 1px #93c5fd;
+}
+
+.spec-section-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+  padding-bottom: 4px;
+  scrollbar-gutter: stable;
+}
+
+.spec-section-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.spec-section-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+}
+
 .spec-section-content {
   font-size: 15px;
   line-height: 1.8;
   min-height: 40px;
+  min-width: 100%;
   padding: 8px 12px;
   border-radius: 6px;
   outline: none;
@@ -1399,8 +1577,153 @@ button:disabled,
   word-break: break-word;
 }
 
+.spec-section-content .spec-prose {
+  white-space: pre-wrap;
+  margin: 0 0 10px;
+}
+
+.spec-section-content table {
+  width: auto;
+  min-width: 240px;
+  border-collapse: collapse;
+  margin: 12px 0;
+  white-space: normal;
+  font-size: 14px;
+  line-height: 1.5;
+  table-layout: fixed;
+}
+
+.spec-table-chrome-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2500;
+}
+
+.spec-table-toolbar {
+  position: fixed;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #1e293b;
+  color: #f8fafc;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+  pointer-events: auto;
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 22;
+}
+
+.spec-table-toolbar button {
+  border: none;
+  background: #334155;
+  color: inherit;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.spec-table-toolbar button:hover {
+  background: #475569;
+}
+
+.spec-table-toolbar-danger {
+  background: #7f1d1d !important;
+}
+
+.spec-table-toolbar-danger:hover {
+  background: #991b1b !important;
+}
+
+.spec-table-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: #475569;
+  margin: 0 2px;
+}
+
+.spec-table-selection-frame {
+  position: fixed;
+  border: 2px solid #3b82f6;
+  border-radius: 2px;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 21;
+}
+
+.spec-table-col-resize {
+  position: fixed;
+  width: 6px;
+  margin-left: -3px;
+  cursor: col-resize;
+  pointer-events: auto;
+  z-index: 23;
+}
+
+.spec-table-col-resize:hover {
+  background: rgba(59, 130, 246, 0.35);
+}
+
+.spec-table-row-resize {
+  position: fixed;
+  height: 6px;
+  margin-top: -3px;
+  cursor: row-resize;
+  pointer-events: auto;
+  z-index: 23;
+}
+
+.spec-table-row-resize:hover {
+  background: rgba(59, 130, 246, 0.35);
+}
+
+.spec-table-scale-handle {
+  position: fixed;
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  cursor: nwse-resize;
+  pointer-events: auto;
+  z-index: 24;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.spec-section-content caption {
+  caption-side: top;
+  font-weight: 700;
+  text-align: left;
+  padding: 0 0 8px;
+  color: var(--text);
+}
+
+.spec-section-content th,
+.spec-section-content td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  vertical-align: top;
+  min-width: 3rem;
+  background: var(--white);
+}
+
+.spec-section-content th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.spec-section-content tr:focus-within td,
+.spec-section-content tr:focus-within th {
+  outline: 1px solid #93c5fd;
+  outline-offset: -1px;
+}
+
 .spec-section-content:focus {
-  border: 1px solid #93c5fd;
+  outline: none;
   background: #fafbff;
 }
 

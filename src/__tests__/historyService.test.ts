@@ -44,7 +44,8 @@ function minimalSnapshot(id: string, title: string): PatentDraftSnapshot {
       claimStyle: "balanced",
       autoRecommendDrawingType: true,
       generateAdditionalQuestions: true,
-      inventionMakingEnabled: false
+      inventionMakingEnabled: false,
+      chemicalInventionEnabled: false
     },
     analysis: null,
     workflow: {
