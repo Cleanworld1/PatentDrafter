@@ -1,3 +1,5 @@
+import "server-only";
+
 import { assembleSpecificationFromWorkflow } from "@/lib/workflow/assembleSpecification";
 import {
   appendGraphDrawingPrompts,

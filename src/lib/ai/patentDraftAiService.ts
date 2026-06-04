@@ -1,3 +1,5 @@
+import "server-only";
+
 import { buildOpenAiUserContentParts } from "@/lib/ai/multimodalRequestBuilder";
 import { createMultimodalLlmClientFromResolved } from "@/lib/ai/openaiClient";
 import { requireOpenAiCredentials } from "@/lib/ai/resolveOpenAiCredentials";

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { analyzeMaterialsWithAi, type IncomingMaterialFile } from "@/lib/ai/patentDraftAiService";
 
 import { buildGenerateSpecificationPrompt } from "@/prompts/generateSpecification";

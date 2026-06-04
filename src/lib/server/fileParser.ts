@@ -13,9 +13,15 @@ function normalizeWhitespace(text: string): string {
   return text.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+async function ensurePdfParseWorker(): Promise<void> {
+  await import("pdf-parse/worker");
+}
+
 async function extractPdf(buffer: Buffer): Promise<string> {
+  await ensurePdfParseWorker();
   const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: buffer });
+  const { CanvasFactory } = await import("pdf-parse/worker");
+  const parser = new PDFParse({ data: buffer, CanvasFactory });
   try {
     const result = await parser.getText();
     return normalizeWhitespace(result.text ?? "");
