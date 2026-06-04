@@ -72,19 +72,11 @@ export function buildOpenAiUserContentParts(
       continue;
     }
 
-    if (file.aiInputMode === "pdf_input") {
+    // OpenAI Chat Completions: type "file" + file_data 는 data:application/pdf;base64,... 만 허용
+    if (file.aiInputMode === "pdf_input" && file.mimeType === "application/pdf") {
       parts.push({
         type: "text",
         text: `다음 PDF를 단순 텍스트 변환 없이 문서 구조·표·도면·이미지·레이아웃과 함께 해석하라: ${file.name}`
-      });
-      parts.push({ type: "file", file: { filename: file.name, file_data: dataUrl } });
-      continue;
-    }
-
-    if (file.aiInputMode === "document_input" || file.aiInputMode === "spreadsheet_input") {
-      parts.push({
-        type: "text",
-        text: `다음 파일 원본의 구조·표·도식·슬라이드 배치를 보존하여 해석하라: ${file.name}`
       });
       parts.push({ type: "file", file: { filename: file.name, file_data: dataUrl } });
       continue;

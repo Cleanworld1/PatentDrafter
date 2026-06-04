@@ -40,7 +40,8 @@ export function detectFileType(fileName: string, mimeType = ""): DetectedFileTyp
       extension,
       mimeType: mimeType || "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       aiInputMode: "document_input",
-      supportsNativeAiInput: true
+      // Chat Completions file.file_data 는 application/pdf 만 허용 → PPTX는 텍스트 추출 fallback
+      supportsNativeAiInput: false
     };
   }
 
@@ -50,7 +51,7 @@ export function detectFileType(fileName: string, mimeType = ""): DetectedFileTyp
       extension,
       mimeType: mimeType || (isHwp ? "application/x-hwp" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
       aiInputMode: "document_input",
-      supportsNativeAiInput: !isHwp
+      supportsNativeAiInput: false
     };
   }
 
@@ -59,7 +60,8 @@ export function detectFileType(fileName: string, mimeType = ""): DetectedFileTyp
       extension,
       mimeType: mimeType || (extension === ".csv" ? "text/csv" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
       aiInputMode: "spreadsheet_input",
-      supportsNativeAiInput: extension !== ".xls"
+      // xlsx/csv 등은 OpenAI file 입력(PDF 전용) 불가 → xlsx 라이브러리로 파싱 후 텍스트 전달
+      supportsNativeAiInput: false
     };
   }
 
