@@ -18,6 +18,10 @@ function port3000Listening() {
   }
 }
 
+if (process.env.VERCEL || process.env.CI) {
+  process.exit(0);
+}
+
 if (port3000Listening()) {
   console.error("");
   console.error("WARN: localhost:3000 dev 서버가 실행 중입니다.");

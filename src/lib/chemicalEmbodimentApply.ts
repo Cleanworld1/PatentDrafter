@@ -1,5 +1,6 @@
 import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
-import type { DrawingPrompt, DrawingPlanItem } from "@/types/patentWorkflow";
+import type { DrawingPrompt } from "@/types/patentDraft";
+import type { DrawingPlanItem } from "@/types/patentWorkflow";
 
 export function mergeChemicalEmbodimentIntoDetailedDescription(
   base: string,
