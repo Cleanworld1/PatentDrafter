@@ -5,6 +5,8 @@ import {
   getServerEnvApiKey,
   resolveOpenAiCredentials
 } from "@/lib/ai/resolveOpenAiCredentials";
+import { getDefaultOpenAiCallTimeoutMs } from "@/lib/ai/analyzeTimeout";
+import { fetchWithTimeout } from "@/lib/ai/fetchWithTimeout";
 import { buildOpenAiAuthHeaders } from "@/lib/ai/openAiRequestHeaders";
 import type { OpenAiCredentialInput, ResolvedOpenAiCredentials } from "@/types/openAiCredentials";
 
@@ -38,7 +40,8 @@ export class OpenAiMultimodalClient implements MultimodalLlmClient {
   constructor(
     private readonly apiKey: string,
     private readonly model: string,
-    private readonly scope?: { organizationId?: string; projectId?: string }
+    private readonly scope?: { organizationId?: string; projectId?: string },
+    private readonly timeoutMs: number = getDefaultOpenAiCallTimeoutMs()
   ) {}
 
   async generateJson(prompt: string): Promise<string> {
@@ -50,14 +53,18 @@ export class OpenAiMultimodalClient implements MultimodalLlmClient {
   }
 
   async generateJsonFromParts(parts: OpenAiContentPart[]): Promise<string> {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...buildOpenAiAuthHeaders(this.apiKey, this.scope)
+    const response = await fetchWithTimeout(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildOpenAiAuthHeaders(this.apiKey, this.scope)
+        },
+        body: JSON.stringify(buildChatCompletionBody(this.model, parts, "json"))
       },
-      body: JSON.stringify(buildChatCompletionBody(this.model, parts, "json"))
-    });
+      this.timeoutMs
+    );
 
     if (!response.ok) {
       const errBody = await response.text();
@@ -73,14 +80,18 @@ export class OpenAiMultimodalClient implements MultimodalLlmClient {
   }
 
   async generatePlainTextFromParts(parts: OpenAiContentPart[]): Promise<string> {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...buildOpenAiAuthHeaders(this.apiKey, this.scope)
+    const response = await fetchWithTimeout(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildOpenAiAuthHeaders(this.apiKey, this.scope)
+        },
+        body: JSON.stringify(buildChatCompletionBody(this.model, parts, "plain"))
       },
-      body: JSON.stringify(buildChatCompletionBody(this.model, parts, "plain"))
-    });
+      this.timeoutMs
+    );
 
     if (!response.ok) {
       const errBody = await response.text();
@@ -130,12 +141,18 @@ export function getOpenAiConfig() {
 }
 
 export function createMultimodalLlmClientFromResolved(
-  resolved: ResolvedOpenAiCredentials
+  resolved: ResolvedOpenAiCredentials,
+  options?: { timeoutMs?: number }
 ): MultimodalLlmClient {
-  return new OpenAiMultimodalClient(resolved.apiKey, resolved.model, {
-    organizationId: resolved.organizationId,
-    projectId: resolved.projectId
-  });
+  return new OpenAiMultimodalClient(
+    resolved.apiKey,
+    resolved.model,
+    {
+      organizationId: resolved.organizationId,
+      projectId: resolved.projectId
+    },
+    options?.timeoutMs
+  );
 }
 
 export function createMultimodalLlmClient(

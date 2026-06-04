@@ -5,7 +5,13 @@ export const VERCEL_MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 export async function parseApiErrorResponse(response: Response, fallback: string): Promise<string> {
   try {
-    const data = (await response.json()) as { error?: string; message?: string };
+    const data = (await response.json()) as {
+      error?: string;
+      message?: string;
+      code?: string;
+    };
+    if (data.code === "ANALYZE_TIMEOUT" && data.error) return data.error;
+    if (data.code === "PAYLOAD_TOO_LARGE" && data.error) return data.error;
     if (data.error) return data.error;
     if (data.message) return data.message;
   } catch {

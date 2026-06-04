@@ -12,6 +12,9 @@ interface OpenAiSessionState {
   suggestedModel: string;
   envProjectConfigured: boolean;
   envOrganizationConfigured: boolean;
+  hostedOnVercel: boolean;
+  needsProTimeoutEnv: boolean;
+  analyzeTimeoutMs: number | null;
   configLoaded: boolean;
   configError: string | null;
 
@@ -24,6 +27,9 @@ interface OpenAiSessionState {
     suggestedModel: string;
     envProjectConfigured?: boolean;
     envOrganizationConfigured?: boolean;
+    hostedOnVercel?: boolean;
+    needsProTimeoutEnv?: boolean;
+    analyzeTimeoutMs?: number;
   }) => void;
   setConfigLoadState: (state: { configLoaded: boolean; configError: string | null }) => void;
   getModelForRequest: () => string;
@@ -39,6 +45,9 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
   suggestedModel: DEFAULT_MODEL,
   envProjectConfigured: false,
   envOrganizationConfigured: false,
+  hostedOnVercel: false,
+  needsProTimeoutEnv: false,
+  analyzeTimeoutMs: null,
   configLoaded: false,
   configError: null,
 
@@ -53,7 +62,10 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
     devMockAllowed,
     suggestedModel,
     envProjectConfigured,
-    envOrganizationConfigured
+    envOrganizationConfigured,
+    hostedOnVercel,
+    needsProTimeoutEnv,
+    analyzeTimeoutMs
   }) =>
     set({
       serverFallbackAvailable,
@@ -61,6 +73,12 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
       suggestedModel,
       envProjectConfigured: Boolean(envProjectConfigured),
       envOrganizationConfigured: Boolean(envOrganizationConfigured),
+      hostedOnVercel: Boolean(hostedOnVercel),
+      needsProTimeoutEnv: Boolean(needsProTimeoutEnv),
+      analyzeTimeoutMs:
+        typeof analyzeTimeoutMs === "number" && Number.isFinite(analyzeTimeoutMs)
+          ? analyzeTimeoutMs
+          : null,
       selectedModel: get().selectedModel === DEFAULT_MODEL ? suggestedModel : get().selectedModel
     }),
 

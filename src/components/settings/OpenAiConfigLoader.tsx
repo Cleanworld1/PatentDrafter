@@ -18,7 +18,10 @@ export function OpenAiConfigLoader() {
         serverFallbackAvailable: data.serverFallbackAvailable,
         devMockAllowed: data.devMockAllowed,
         envProjectConfigured: data.envProjectConfigured,
-        envOrganizationConfigured: data.envOrganizationConfigured
+        envOrganizationConfigured: data.envOrganizationConfigured,
+        hostedOnVercel: data.hostedOnVercel,
+        needsProTimeoutEnv: data.needsProTimeoutEnv,
+        analyzeTimeoutMs: data.analyzeTimeoutMs
       });
       setConfigLoadState({ configLoaded: true, configError: null });
     } catch (err) {

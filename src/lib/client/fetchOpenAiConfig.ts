@@ -6,6 +6,10 @@ export interface OpenAiConfigResponse {
   devMockAllowed: boolean;
   envProjectConfigured?: boolean;
   envOrganizationConfigured?: boolean;
+  hostedOnVercel?: boolean;
+  analyzeTimeoutMs?: number;
+  needsProTimeoutEnv?: boolean;
+  proTimeoutEnvExample?: string;
 }
 
 export async function fetchOpenAiConfig(): Promise<OpenAiConfigResponse> {
@@ -24,6 +28,10 @@ export async function fetchOpenAiConfig(): Promise<OpenAiConfigResponse> {
     serverFallbackAvailable: Boolean(data.serverFallbackAvailable),
     devMockAllowed: Boolean(data.devMockAllowed),
     envProjectConfigured: Boolean(data.envProjectConfigured),
-    envOrganizationConfigured: Boolean(data.envOrganizationConfigured)
+    envOrganizationConfigured: Boolean(data.envOrganizationConfigured),
+    hostedOnVercel: Boolean(data.hostedOnVercel),
+    analyzeTimeoutMs: data.analyzeTimeoutMs,
+    needsProTimeoutEnv: Boolean(data.needsProTimeoutEnv),
+    proTimeoutEnvExample: data.proTimeoutEnvExample
   };
 }
