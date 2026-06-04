@@ -15,7 +15,19 @@ import { validateMaterialsForAnalyze } from "@/lib/client/validateMaterialsUploa
 import { buildReviewSummary, buildSpecContextSummary } from "@/lib/supplement/buildSpecContextSummary";
 import { formatFetchError, parseApiErrorResponse } from "@/lib/client/parseApiError";
 import { assertCanRunAi } from "@/store/sessionApiKeyStore";
-import { clearFileBlobs, getFileBlob, removeFileBlob } from "@/lib/client/fileBlobRegistry";
+import {
+  clearFileBlobs,
+  getFileBlob,
+  removeFileBlob,
+  registerFileBlob,
+  scheduleProjectFileRestore,
+  setFileBlobProjectContext,
+  waitForProjectFileRestore
+} from "@/lib/client/fileBlobRegistry";
+import {
+  deleteAllPersistedFilesForProject,
+  restoreProjectFileBlobs
+} from "@/lib/client/fileBlobPersistence";
 import { materialTypeToSourceType } from "@/lib/fileInput/fileInputTypes";
 import {
   buildReviewSupplementInstruction,
@@ -199,12 +211,13 @@ async function fetchChemicalEmbodimentAnalysis(
     return null;
   }
 
-  const uploadError = validateMaterialsForAnalyze(state.uploadedFiles, getFileBlob);
+  await waitForProjectFileRestore(state.currentProject.id);
+  const uploadError = validateMaterialsForAnalyze(get().uploadedFiles, getFileBlob);
   if (uploadError) {
     throw new Error(uploadError);
   }
 
-  const formData = buildChemicalEmbodimentFormData(state, state.analysis);
+  const formData = buildChemicalEmbodimentFormData(get(), state.analysis);
   const response = await fetch("/api/analyze-chemical-embodiments", {
     method: "POST",
     body: formData
@@ -572,9 +585,77 @@ async function runPostFullDraftRefinement(
   syncSpecificationDerived(set, get);
 }
 
+function uploadedFileAfterBlobRestore(file: UploadedFile): UploadedFile {
+  const isHwp = file.extension === ".hwp" || file.extension === ".hwpx";
+  let status = file.status;
+  if (isHwp) {
+    status = "unsupported";
+  } else if (file.aiInputMode === "text_fallback") {
+    status = "fallback_ready";
+  } else {
+    status = "native_ready";
+  }
+  return {
+    ...file,
+    fileObjectRef: file.fileObjectRef || file.id,
+    analysisNotes: file.analysisNotes?.includes("히스토리")
+      ? "브라우저 저장소에서 파일을 복원했습니다."
+      : file.analysisNotes || "서버에서 원본 파일 기반 AI 분석을 수행합니다.",
+    fallbackUsed: isHwp || file.fallbackUsed,
+    status
+  };
+}
+
+function scheduleUploadedFilesRestore(
+  projectId: string,
+  files: UploadedFile[],
+  get: () => PatentDraftState,
+  set: (partial: Partial<PatentDraftState> | ((state: PatentDraftState) => Partial<PatentDraftState>)) => void
+): void {
+  if (files.length === 0) return;
+  scheduleProjectFileRestore(projectId, async () => {
+    const restored = await restoreProjectFileBlobs(
+      projectId,
+      files.map((f) => f.id)
+    );
+    if (restored.size === 0) return;
+    if (get().currentProject.id !== projectId) return;
+
+    for (const [id, blob] of restored) {
+      registerFileBlob(id, blob);
+    }
+
+    set((state) => {
+      if (state.currentProject.id !== projectId) return state;
+      const expectedIds = new Set(files.map((f) => f.id));
+      const uploadedFiles = state.uploadedFiles.map((f) => {
+        if (restored.has(f.id)) return uploadedFileAfterBlobRestore(f);
+        if (!expectedIds.has(f.id)) return f;
+        return {
+          ...f,
+          analysisNotes: "이 브라우저에 저장된 원본이 없습니다. 파일을 다시 업로드해 주세요.",
+          fallbackUsed: true,
+          status: "unsupported" as const
+        };
+      });
+      return {
+        uploadedFiles,
+        input: buildInventionInput(state.currentProject, state.textInputs, uploadedFiles, state.options)
+      };
+    });
+
+    syncChemicalFormulaObjectUrlsFromFiles(
+      get().uploadedFiles,
+      getFileBlob,
+      get().options.chemicalInventionEnabled
+    );
+  });
+}
+
 export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
   const project = createDefaultProject();
   const options = defaultOptions();
+  setFileBlobProjectContext(project.id);
 
   return {
     currentProject: project,
@@ -787,6 +868,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
       clearSupplementChatBlobs();
       clearChemicalFormulaObjectUrls();
       const project = createDefaultProject();
+      setFileBlobProjectContext(project.id);
       const options = defaultOptions();
       set({
         currentProject: project,
@@ -823,6 +905,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
       }
 
       deleteHistoryEntry(projectId);
+      void deleteAllPersistedFilesForProject(projectId);
 
       if (state.currentProject.id === projectId) {
         const remaining = listHistory();
@@ -837,21 +920,23 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
     },
 
     loadProject: (snapshot) => {
-      const uploadedFiles = (snapshot.uploadedFiles ?? []).map((f) => {
-        const hasBlob = Boolean(getFileBlob(f.id));
-        return {
-          ...f,
-          extension: f.extension ?? "",
-          sourceType: f.sourceType ?? materialTypeToSourceType(f.materialType),
-          aiInputMode: f.aiInputMode ?? "text_fallback",
-          fileObjectRef: f.fileObjectRef ?? f.id,
-          analysisNotes: hasBlob
-            ? f.analysisNotes
-            : "히스토리에서 복원됨 — 원본 분석을 위해 파일을 다시 업로드해 주세요.",
-          fallbackUsed: f.fallbackUsed ?? !hasBlob,
-          status: hasBlob ? (f.status ?? "native_ready") : ("unsupported" as const)
-        };
-      });
+      const projectId = snapshot.currentProject.id;
+      setFileBlobProjectContext(projectId);
+      clearFileBlobs();
+
+      const uploadedFiles = (snapshot.uploadedFiles ?? []).map((f) => ({
+        ...f,
+        extension: f.extension ?? "",
+        sourceType: f.sourceType ?? materialTypeToSourceType(f.materialType),
+        aiInputMode: f.aiInputMode ?? "text_fallback",
+        fileObjectRef: f.fileObjectRef ?? f.id,
+        analysisNotes:
+          f.analysisNotes?.includes("히스토리") || !f.analysisNotes
+            ? "저장된 파일을 불러오는 중…"
+            : f.analysisNotes,
+        fallbackUsed: f.fallbackUsed ?? false,
+        status: (f.status ?? "native_ready") as UploadedFile["status"]
+      }));
       set({
         currentProject: snapshot.currentProject,
         input: snapshot.input,
@@ -878,11 +963,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
           : null
       });
       clearSupplementChatBlobs();
-      syncChemicalFormulaObjectUrlsFromFiles(
-        uploadedFiles,
-        getFileBlob,
-        get().options.chemicalInventionEnabled
-      );
+      scheduleUploadedFilesRestore(projectId, uploadedFiles, get, set);
     },
 
     initSupplementChatWelcome: () => {
@@ -1053,7 +1134,8 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
       set({ loadingStage: "analyze", error: "" });
       try {
         assertCanRunAi();
-        const uploadError = validateMaterialsForAnalyze(state.uploadedFiles, getFileBlob);
+        await waitForProjectFileRestore(state.currentProject.id);
+        const uploadError = validateMaterialsForAnalyze(get().uploadedFiles, getFileBlob);
         if (uploadError) {
           set({ error: uploadError, loadingStage: "" });
           return;
@@ -1238,13 +1320,20 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
 
       try {
         assertCanRunAi();
-        const uploadError = validateMaterialsForAnalyze(state.uploadedFiles, getFileBlob);
+        await waitForProjectFileRestore(state.currentProject.id);
+        const uploadError = validateMaterialsForAnalyze(get().uploadedFiles, getFileBlob);
         if (uploadError) {
           set({ error: uploadError, loadingStage: "" });
           return;
         }
-        const input = buildInventionInput(state.currentProject, state.textInputs, state.uploadedFiles, state.options);
-        const formData = buildMaterialsFormData(state);
+        const latest = get();
+        const input = buildInventionInput(
+          latest.currentProject,
+          latest.textInputs,
+          latest.uploadedFiles,
+          latest.options
+        );
+        const formData = buildMaterialsFormData(latest);
         const response = await fetch("/api/full-draft", { method: "POST", body: formData });
         if (!response.ok) {
           throw new Error(await parseApiErrorResponse(response, "전체 자동 작성에 실패했습니다"));

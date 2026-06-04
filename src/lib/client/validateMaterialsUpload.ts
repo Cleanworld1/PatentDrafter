@@ -12,7 +12,7 @@ export function validateMaterialsForAnalyze(
   const missing = uploadedFiles.filter((f) => !getBlob(f.id));
   if (missing.length > 0) {
     return [
-      "업로드 파일 원본을 찾을 수 없습니다. 히스토리만 불러온 경우 파일을 다시 올려 주세요.",
+      "업로드 파일 원본을 찾을 수 없습니다. 히스토리를 불러온 뒤에는 브라우저에 저장된 복사본을 사용합니다. 아래 파일을 다시 올려 주세요.",
       `누락: ${missing.map((f) => f.name).join(", ")}`
     ].join(" ");
   }

@@ -622,11 +622,15 @@ button:disabled,
   font-size: 11px;
 }
 
-.file-input-hidden {
+.file-dropzone .file-input-hidden {
   position: absolute;
   inset: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.supplement-chat-file-input {
+  display: none;
 }
 
 .upload-error {
@@ -2810,6 +2814,8 @@ body.spec-editor-fullscreen-active .tab-content {
   background: var(--white);
   cursor: pointer;
   font-size: 18px;
+  position: relative;
+  overflow: hidden;
 }
 
 .supplement-chat-textarea {

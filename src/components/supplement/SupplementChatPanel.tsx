@@ -31,6 +31,7 @@ export function SupplementChatPanel() {
   const [uploadError, setUploadError] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isSending = loadingStage === "supplement_chat";
   const canChat = Boolean(analysis) && canRunAi && !isSending;
@@ -187,19 +188,29 @@ export function SupplementChatPanel() {
         {uploadError && <p className="upload-error">{uploadError}</p>}
 
         <div className="supplement-chat-input-row">
-          <label className="supplement-chat-file-btn" title="파일 첨부">
+          <button
+            type="button"
+            className="supplement-chat-file-btn"
+            title="파일 첨부"
+            aria-label="파일 첨부"
+            disabled={!canChat}
+            onClick={() => fileInputRef.current?.click()}
+          >
             📎
-            <input
-              type="file"
-              multiple
-              className="file-input-hidden"
-              accept={getSupportedExtensions().join(",")}
-              onChange={(e) => {
-                if (e.target.files) processFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-          </label>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="supplement-chat-file-input"
+            tabIndex={-1}
+            aria-hidden
+            accept={getSupportedExtensions().join(",")}
+            onChange={(e) => {
+              if (e.target.files) processFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <textarea
             ref={textareaRef}
             className="supplement-chat-textarea"
