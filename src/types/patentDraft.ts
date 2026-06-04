@@ -33,6 +33,8 @@ export interface InventionInput {
   inventionType: InventionType;
   /** 발명 메이킹: 자료 기반 적극 확장·구체화 */
   inventionMakingEnabled?: boolean;
+  /** 화학 발명: 실험예·비교예·수치한정·표 형식 지침 */
+  chemicalInventionEnabled?: boolean;
 }
 
 export interface InventionAnalysis {

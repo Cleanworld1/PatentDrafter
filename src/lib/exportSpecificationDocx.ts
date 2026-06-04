@@ -35,29 +35,6 @@ export function buildSpecificationSectionParagraphs(
 
 type DocxParagraph = import("docx").Paragraph;
 type DocxTable = import("docx").Table;
-type DocxTextRun = import("docx").TextRun;
-
-/** 단락 문자열 내 \\n → Word 줄바꿈(break) */
-function paragraphTextToDocxRuns(
-  text: string,
-  TextRun: typeof import("docx").TextRun
-): DocxTextRun[] {
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
-  const runs: DocxTextRun[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    if (i > 0) {
-      runs.push(new TextRun({ break: 1 }));
-    }
-    runs.push(new TextRun({ text: lines[i] ?? "" }));
-  }
-
-  if (runs.length === 0) {
-    runs.push(new TextRun({ text: "" }));
-  }
-
-  return runs;
-}
 
 function buildDocxTable(
   table: ParsedTable,
@@ -108,7 +85,7 @@ function blocksToDocxChildren(
     if (block.type === "paragraph") {
       children.push(
         new Paragraph({
-          children: paragraphTextToDocxRuns(block.text, TextRun),
+          children: [new TextRun({ text: block.text })],
           spacing: { after: 120 }
         })
       );

@@ -1,11 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { refreshOpenAiConfigFromApi } from "@/components/settings/OpenAiConfigLoader";
 import { useSessionApiKeyStore } from "@/store/sessionApiKeyStore";
 
 export function OpenAiModelSelect() {
-  const [retrying, setRetrying] = useState(false);
   const {
     serverFallbackAvailable,
     devMockAllowed,
@@ -38,17 +35,13 @@ export function OpenAiModelSelect() {
 
       <div className={`openai-connection-status ${statusClass}`}>
         <span>{connectionLabel}</span>
-        {(configError || retrying) && (
+        {configError && (
           <button
             type="button"
             className="openai-config-retry"
-            disabled={retrying}
-            onClick={() => {
-              setRetrying(true);
-              void refreshOpenAiConfigFromApi().finally(() => setRetrying(false));
-            }}
+            onClick={() => window.location.reload()}
           >
-            {retrying ? "확인 중…" : "다시 확인"}
+            새로고침
           </button>
         )}
       </div>

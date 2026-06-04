@@ -1,14 +1,8 @@
 import { getDrawingReferenceNumberRulesBlock } from "@/knowledge/drawingReferenceNumberRules";
 import type { DrawingPrompt } from "@/types/patentDraft";
 
-const DEFAULT_NANO_BANANA_URL = "https://aistudio.google.com/";
-
-export function getNanoBananaStudioUrl(): string {
-  return process.env.NEXT_PUBLIC_NANO_BANANA_URL?.trim() || DEFAULT_NANO_BANANA_URL;
-}
-
-/** Nano Banana 2(이미지 생성)에 붙여넣을 도면 프롬프트 본문 */
-export function buildNanoBananaDrawingPrompt(
+/** 외부 도면 작성 도구에 붙여넣을 프롬프트 본문 */
+export function buildDrawingGenerationPrompt(
   figureNumber: number,
   sectionContent: string,
   drawingPrompt?: DrawingPrompt
@@ -49,8 +43,6 @@ export function buildNanoBananaDrawingPrompt(
   return lines.filter((l) => l !== undefined).join("\n");
 }
 
-/** 프롬프트를 클립보드에 복사하고 Nano Banana 2(기본: Google AI Studio) 탭을 연다 */
-export async function launchNanoBananaDrawing(prompt: string): Promise<void> {
+export async function copyDrawingGenerationPrompt(prompt: string): Promise<void> {
   await navigator.clipboard.writeText(prompt);
-  window.open(getNanoBananaStudioUrl(), "_blank", "noopener,noreferrer");
 }

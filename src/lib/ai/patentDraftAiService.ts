@@ -64,7 +64,8 @@ export function buildLegacyInventionInput(
     desiredClaimCount: payload.options.claimCount,
     desiredDrawingCount: payload.options.drawingCount,
     inventionType: payload.options.inventionType,
-    inventionMakingEnabled: payload.options.inventionMakingEnabled ?? false
+    inventionMakingEnabled: payload.options.inventionMakingEnabled ?? false,
+    chemicalInventionEnabled: payload.options.chemicalInventionEnabled ?? false
   };
 }
 

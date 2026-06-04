@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  getChemicalInventionMakingCombinedBlock,
-  getChemicalInventionMakingRegenerateNote,
+  getChemicalInventionMakingAnalysisNotes,
+  getChemicalInventionMakingRulesBlock,
   getChemicalInventionMakingSectionNote,
   isChemicalInventionMakingMode
 } from "@/knowledge/chemicalInventionMakingRules";
+import { buildAnalyzeInventionPrompt } from "@/prompts/analyzeInvention";
 import { buildGenerateSpecificationPrompt } from "@/prompts/generateSpecification";
 import { buildRegenerateSectionPrompt } from "@/prompts/regenerateSection";
 import { defaultDraftOptions } from "@/lib/defaultDraftOptions";
@@ -44,21 +45,20 @@ describe("chemical invention + invention making combined rules", () => {
     expect(isChemicalInventionMakingMode(false, true)).toBe(false);
   });
 
-  it("requires numerical limitation tables and experiment/comparative examples", () => {
-    const block = getChemicalInventionMakingCombinedBlock(true, true);
-    expect(block).toContain("수치한정");
+  it("includes experiment/comparison tables and numerical limitation guidance", () => {
+    const block = getChemicalInventionMakingRulesBlock(true, true);
     expect(block).toContain("실험예");
     expect(block).toContain("비교예");
-    expect(block).toContain("HTML <table>");
-    expect(block).toContain("2~3");
-    expect(block).toContain("임계");
+    expect(block).toContain("수치한정");
+    expect(block).toContain("2개 이상 3개");
+    expect(block).toContain("임계적");
   });
 
-  it("injects combined rules into generate and regenerate prompts", () => {
+  it("injects into generate and regenerate prompts", () => {
     const options = {
       ...defaultDraftOptions(),
-      inventionMakingEnabled: true,
-      chemicalInventionEnabled: true
+      chemicalInventionEnabled: true,
+      inventionMakingEnabled: true
     };
     const gen = buildGenerateSpecificationPrompt({ analysis: minimalAnalysis, options });
     expect(gen).toContain("화학 발명 + 발명 메이킹");
@@ -68,13 +68,31 @@ describe("chemical invention + invention making combined rules", () => {
       sectionTitle: "구체적인 내용",
       currentContent: "",
       analysis: minimalAnalysis,
+      chemicalInventionEnabled: true,
+      inventionMakingEnabled: true
+    });
+    expect(regen).toContain("HTML 표 2~3개");
+    expect(getChemicalInventionMakingSectionNote("detailed_description", true, true)).toContain(
+      "비교예"
+    );
+  });
+
+  it("adds analysis notes when both enabled", () => {
+    expect(getChemicalInventionMakingAnalysisNotes(true, true)).toContain(
+      "table_or_experiment_data_analysis"
+    );
+    const prompt = buildAnalyzeInventionPrompt({
+      projectName: "P",
+      inventionContent: "",
+      attachmentText: "",
+      materialType: "발명제안서",
+      desiredClaimCount: 5,
+      desiredDrawingCount: 2,
+      inventionType: "물질/조성물",
       inventionMakingEnabled: true,
       chemicalInventionEnabled: true
     });
-    expect(regen).toContain("표 2~3개");
-    expect(getChemicalInventionMakingRegenerateNote(true, true)).toContain("2~3개");
-    expect(getChemicalInventionMakingSectionNote("detailed_description", true, true)).toContain(
-      "하한 미만"
-    );
+    expect(prompt).toContain("화학 발명: 활성");
+    expect(prompt).toContain("화학 발명 + 발명 메이킹");
   });
 });

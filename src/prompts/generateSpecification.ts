@@ -6,7 +6,7 @@ import {
   type PatentSectionGuidelines
 } from "@/knowledge/patentSectionGuidelines";
 import { getChemicalInventionRulesBlock } from "@/knowledge/chemicalInventionRules";
-import { getChemicalInventionMakingCombinedBlock } from "@/knowledge/chemicalInventionMakingRules";
+import { getChemicalInventionMakingRulesBlock } from "@/knowledge/chemicalInventionMakingRules";
 import { getInventionMakingRulesBlock } from "@/knowledge/inventionMakingRules";
 import type { DraftOptions, GenerateSpecOptions, InventionAnalysis } from "@/types/patentDraft";
 
@@ -63,7 +63,7 @@ ${getInventionMakingRulesBlock(inventionMaking)}
 
 ${getChemicalInventionRulesBlock(chemicalInvention)}
 
-${getChemicalInventionMakingCombinedBlock(inventionMaking, chemicalInvention)}
+${getChemicalInventionMakingRulesBlock(chemicalInvention, inventionMaking)}
 
 요구 청구항 수: ${options.desiredClaimCount}
 요구 도면 수: ${options.desiredDrawingCount}

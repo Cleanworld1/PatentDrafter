@@ -237,7 +237,6 @@ npm run build
 | `OPENAI_PROJECT_ID` | 권장 | `proj_…` (proj Key 사용 시) |
 | `OPENAI_ORG_ID` | 선택 | 조직 ID |
 | `ALLOW_MOCK_WITHOUT_OPENAI_KEY` | 선택 | production에서는 `false` 권장 |
-| `NEXT_PUBLIC_NANO_BANANA_URL` | 선택 | 도면 생성 버튼 URL |
 
 `.env.local`은 Vercel에 올라가지 않습니다. Vercel 대시보드 → Project → Settings → Environment Variables에서 설정하세요.
 

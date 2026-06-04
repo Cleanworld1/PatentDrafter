@@ -1,16 +1,24 @@
 import { NextResponse } from "next/server";
-import { getOpenAiPublicConfig } from "@/lib/ai/getOpenAiPublicConfig";
+import { getConfiguredOpenAiScope } from "@/lib/ai/openAiRequestHeaders";
 import { OPENAI_MODEL_GROUPS } from "@/lib/ai/openAiModelCatalog";
-import { isServerOpenAiConfigured } from "@/lib/ai/resolveOpenAiCredentials";
+import {
+  getDefaultModelName,
+  isDevMockWithoutKeyAllowed,
+  isServerOpenAiConfigured
+} from "@/lib/ai/resolveOpenAiCredentials";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const publicConfig = getOpenAiPublicConfig();
+  const scope = getConfiguredOpenAiScope();
   const serverConfigured = isServerOpenAiConfigured();
   return NextResponse.json({
-    ...publicConfig,
+    suggestedModel: getDefaultModelName(),
+    envProjectConfigured: scope.hasProject,
+    envOrganizationConfigured: scope.hasOrganization,
     modelGroups: OPENAI_MODEL_GROUPS,
-    serverFallbackConfigured: serverConfigured
+    serverFallbackAvailable: serverConfigured,
+    serverFallbackConfigured: serverConfigured,
+    devMockAllowed: isDevMockWithoutKeyAllowed()
   });
 }

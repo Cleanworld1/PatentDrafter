@@ -1,4 +1,4 @@
-import { hasRenderableHtml, shouldUseHtmlEditor, TABLE_BLOCK_RE } from "@/lib/specEditorHtml";
+import { hasRenderableHtml, TABLE_BLOCK_RE } from "@/lib/specEditorHtml";
 
 export interface ParsedTable {
   caption?: string;
@@ -19,36 +19,6 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
-}
-
-/** HTML 조각 → export용 평문 (br·블록 요소 → \\n) */
-export function htmlFragmentToPlainText(html: string): string {
-  const trimmed = html.trim();
-  if (!trimmed) return "";
-
-  if (typeof DOMParser !== "undefined") {
-    const wrapped = /^<[a-z]/i.test(trimmed) ? trimmed : `<div>${trimmed}</div>`;
-    const doc = new DOMParser().parseFromString(wrapped, "text/html");
-    const text = (doc.body?.innerText ?? "").replace(/\u00a0/g, " ");
-    return text.replace(/\r\n/g, "\n");
-  }
-
-  return decodeHtmlEntities(
-    trimmed
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>\s*/gi, "\n")
-      .replace(/<\/div>\s*/gi, "\n")
-      .replace(/<[^>]+>/g, "")
-  )
-    .replace(/\r\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n");
-}
-
-function pushParagraphLines(blocks: SectionContentBlock[], plain: string): void {
-  const normalized = plain.replace(/\r\n/g, "\n");
-  for (const line of normalized.split("\n")) {
-    blocks.push({ type: "paragraph", text: line });
-  }
 }
 
 function cellTextFromHtml(inner: string): string {
@@ -115,16 +85,12 @@ export function parseSectionContentBlocks(content: string): SectionContentBlock[
   const trimmed = content.trim();
   if (!trimmed) return [];
 
-  if (!hasRenderableHtml(trimmed) && !shouldUseHtmlEditor(trimmed)) {
-    const blocks: SectionContentBlock[] = [];
-    pushParagraphLines(blocks, trimmed);
-    return blocks;
-  }
-
-  if (!hasRenderableHtml(trimmed) && shouldUseHtmlEditor(trimmed)) {
-    const blocks: SectionContentBlock[] = [];
-    pushParagraphLines(blocks, htmlFragmentToPlainText(trimmed));
-    return blocks;
+  if (!hasRenderableHtml(trimmed)) {
+    return trimmed
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((text) => ({ type: "paragraph", text }));
   }
 
   const parts = trimmed.split(TABLE_BLOCK_RE).filter((p) => p.length > 0);
@@ -140,8 +106,13 @@ export function parseSectionContentBlocks(content: string): SectionContentBlock[
       }
       continue;
     }
-    const plain = /<[a-z]/i.test(piece) ? htmlFragmentToPlainText(piece) : piece;
-    pushParagraphLines(blocks, plain);
+    const lines = piece
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    for (const text of lines) {
+      blocks.push({ type: "paragraph", text });
+    }
   }
 
   return blocks;

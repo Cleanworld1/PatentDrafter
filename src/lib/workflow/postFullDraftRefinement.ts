@@ -20,7 +20,7 @@ const REWRITE_DEFAULT =
 const DRAWING_REF_RULES = getDrawingReferenceNumberRulesBlock();
 
 const DRAWING_REWRITE =
-  "실제 도면 이미지를 생성·묘사하지 말라. 이미지 생성 AI(Nano Banana 2 등) 또는 도면 작성자가 특허 도면을 그릴 수 있도록 하는 상세한 텍스트 프롬프트만 작성하라. 구성요소, 상대 배치, 연결·화살표 의미, 참조부호 규칙, 흑백 선도 스타일을 포함하라." +
+  "실제 도면 이미지를 생성·묘사하지 말라. 도면 작성자가 특허 도면을 그릴 수 있도록 하는 상세한 텍스트 프롬프트만 작성하라. 구성요소, 상대 배치, 연결·화살표 의미, 참조부호 규칙, 흑백 선도 스타일을 포함하라." +
   `\n\n${DRAWING_REF_RULES}`;
 
 const DRAWING_ELABORATE =
