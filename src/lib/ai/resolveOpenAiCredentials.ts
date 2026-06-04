@@ -2,9 +2,10 @@ import type { OpenAiCredentialInput, ResolvedOpenAiCredentials } from "@/types/o
 
 import { FALLBACK_DEFAULT_MODEL } from "@/lib/ai/openAiModelCatalog";
 import { sanitizeOpenAiApiKey } from "@/lib/ai/sanitizeOpenAiApiKey";
+import { getOpenAiKeySetupMessage } from "@/lib/openAiSetupMessage";
 
 export class OpenAiKeyRequiredError extends Error {
-  constructor(message = "OpenAI API Key가 필요합니다. .env.local의 OPENAI_API_KEY를 확인해 주세요.") {
+  constructor(message = getOpenAiKeySetupMessage()) {
     super(message);
     this.name = "OpenAiKeyRequiredError";
   }

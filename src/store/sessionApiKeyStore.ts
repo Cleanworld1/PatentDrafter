@@ -1,3 +1,4 @@
+import { getOpenAiKeySetupMessage } from "@/lib/openAiSetupMessage";
 import { create } from "zustand";
 
 const DEFAULT_MODEL = "gpt-4o";
@@ -85,7 +86,6 @@ export function getModelForRequest(): string {
 
 export function assertCanRunAi(): void {
   if (useSessionApiKeyStore.getState().canRunAi()) return;
-  throw new Error(
-    "서버에 OpenAI API Key가 설정되지 않았습니다. .env.local의 OPENAI_API_KEY를 확인해 주세요."
-  );
+  const host = typeof window !== "undefined" ? window.location.hostname : undefined;
+  throw new Error(getOpenAiKeySetupMessage(host));
 }

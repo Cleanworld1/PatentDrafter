@@ -58,8 +58,8 @@ export function OpenAiModelSelect() {
       )}
 
       <p className="openai-model-hint">
-        모델은 UI가 아니라 <code>.env.local</code>의 <code>OPENAI_MODEL</code>만 적용됩니다.
-        변경 후 dev 서버를 재시작하세요.
+        모델은 <code>OPENAI_MODEL</code> 환경 변수로만 적용됩니다.
+        로컬은 <code>.env.local</code> 변경 후 dev 재시작, 배포는 Vercel 환경 변수 후 Redeploy.
       </p>
       <p className="openai-model-hint">
         서버 상태 확인: <code>/api/openai/config</code>
