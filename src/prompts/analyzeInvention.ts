@@ -1,3 +1,4 @@
+import { getChemicalInventionStageNotes } from "@/knowledge/chemicalInventionRules";
 import { getChemicalInventionMakingAnalysisNotes } from "@/knowledge/chemicalInventionMakingRules";
 import {
   getInventionAnalysisModeNotes,
@@ -62,12 +63,14 @@ export function buildAnalyzeInventionPrompt(
 - PDF가 제공된 경우, 본문 텍스트뿐 아니라 표, 도면, 이미지, 페이지 구성, 제목 계층, 설명 문구 간 관계를 함께 분석하라.
 - PPT가 제공된 경우, 슬라이드의 시각적 배치, 도식, 화살표, 표, 설명 문구를 함께 고려하라.
 - XLSX 또는 CSV가 제공된 경우, 실험 조건, 컬럼 구조, 수치 경향성, 비교군과 실시예의 차이를 분석하라.
+- 화학 발명 모드: 이미지·PDF·PPT 내 **화학식·구조식·반응식** 영역을 식별하고 visual_material_analysis·table_or_experiment_data_analysis에 "화학식 이미지 후보"로 기록하라.
 - 기존 명세서 초안이 제공된 경우, 그 문체와 구조를 참고하되 신규 입력자료에서 확인되는 발명의 핵심을 우선한다.
 
 분석 목적은 단순 요약이 아니라, 청구항으로 보호받을 수 있는 기술적 구성을 도출하는 것이다.
 
 주의:
 ${getInventionAnalysisModeNotes(inventionMaking)}
+${getChemicalInventionStageNotes(chemicalInvention)}
 ${getChemicalInventionMakingAnalysisNotes(chemicalInvention, inventionMaking)}
 - PDF/PPT의 시각 자료와 텍스트 설명이 충돌하는 경우 충돌 사항을 unclear_points에 기재하라.
 - 청구항으로 보호받을 수 있는 구성 중심으로 분석하라.

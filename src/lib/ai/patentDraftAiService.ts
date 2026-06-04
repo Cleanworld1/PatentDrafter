@@ -85,7 +85,8 @@ export async function analyzeMaterialsWithAi(
     prompt,
     payload.projectName,
     payload.userTextInputs,
-    preparedForApi
+    preparedForApi,
+    { chemicalInventionEnabled: payload.options.chemicalInventionEnabled }
   );
   const raw = await client.generateJsonFromParts(parts);
   const { data: parsed } = parseJsonWithFallback<InventionAnalysis>(raw, emptyInventionAnalysis);

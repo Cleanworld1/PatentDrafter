@@ -11,6 +11,8 @@ function toBase64DataUrl(buffer: Buffer, mimeType: string): string {
   return `data:${mimeType};base64,${base64}`;
 }
 
+import { CHEMICAL_FORMULA_MULTIMODAL_NOTE } from "@/knowledge/chemicalFormulaRules";
+
 const IMAGE_ANALYSIS_INSTRUCTION =
   "이 이미지를 단순 OCR하지 말고, 특허명세서 작성 관점에서 도면의 구조, 구성요소, 연결관계, 동작 흐름, 기술적 의미를 분석하라.";
 
@@ -48,7 +50,8 @@ export function buildOpenAiUserContentParts(
   systemPrompt: string,
   projectName: string,
   userTextInputs: TextInputs,
-  prepared: PreparedAiInput[]
+  prepared: PreparedAiInput[],
+  options?: { chemicalInventionEnabled?: boolean }
 ): OpenAiContentPart[] {
   const parts: OpenAiContentPart[] = [
     { type: "text", text: systemPrompt },
@@ -67,7 +70,13 @@ export function buildOpenAiUserContentParts(
     const dataUrl = toBase64DataUrl(file.buffer, file.mimeType);
 
     if (file.aiInputMode === "image_input") {
-      parts.push({ type: "text", text: `${IMAGE_ANALYSIS_INSTRUCTION}\n파일: ${file.name}` });
+      const chemNote = options?.chemicalInventionEnabled
+        ? `\n${CHEMICAL_FORMULA_MULTIMODAL_NOTE}`
+        : "";
+      parts.push({
+        type: "text",
+        text: `${IMAGE_ANALYSIS_INSTRUCTION}${chemNote}\n파일: ${file.name}`
+      });
       parts.push({ type: "image_url", image_url: { url: dataUrl, detail: "high" } });
       continue;
     }

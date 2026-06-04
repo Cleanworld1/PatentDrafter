@@ -1,5 +1,12 @@
+import {
+  resolveChemImgSrcInContent,
+  revertChemImgSrcInContent
+} from "@/lib/chemicalFormulaContent";
+
 const HTML_TABLE_RE = /<(table|thead|tbody|tfoot|tr|th|td|caption)\b/i;
+const HTML_IMG_RE = /<img\b/i;
 export const TABLE_BLOCK_RE = /(<table[\s\S]*?<\/table>)/gi;
+export const CHEM_IMG_BLOCK_RE = /(<img\b[^>]*\bclass=["']chem-formula-img["'][^>]*>)/gi;
 
 const ALLOWED_TAGS = new Set([
   "table",
@@ -20,18 +27,23 @@ const ALLOWED_TAGS = new Set([
   "i",
   "u",
   "sub",
-  "sup"
+  "sup",
+  "img"
 ]);
 
 const FORBIDDEN_ATTR_RE =
   /\s(on\w+|style|class|id|data-[\w-]+)\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi;
 
 export function hasRenderableHtml(content: string): boolean {
-  return HTML_TABLE_RE.test(content);
+  return HTML_TABLE_RE.test(content) || HTML_IMG_RE.test(content);
 }
 
 export function shouldUseHtmlEditor(content: string): boolean {
-  return hasRenderableHtml(content) || /<div class="spec-prose"/i.test(content);
+  return (
+    hasRenderableHtml(content) ||
+    /<div class="spec-prose"/i.test(content) ||
+    /\[화학식\s+\d+\]/i.test(content)
+  );
 }
 
 function escapeHtml(text: string): string {
@@ -44,7 +56,7 @@ function escapeHtml(text: string): string {
 
 /** 저장 문자열 → 편집기 innerHTML */
 export function contentToEditorHtml(content: string): string {
-  const trimmed = content.trim();
+  const trimmed = resolveChemImgSrcInContent(content.trim());
   if (!trimmed) return "";
 
   if (/<div class="spec-prose"/i.test(trimmed)) {
@@ -62,6 +74,9 @@ export function contentToEditorHtml(content: string): string {
       if (!piece) return "";
       if (/^<table/i.test(piece)) {
         return sanitizeSpecHtml(piece);
+      }
+      if (/^<img/i.test(piece) || /\[화학식\s+\d+\]/i.test(piece)) {
+        return sanitizeSpecHtml(piece.replace(/\n/g, "<br>"));
       }
       const inner = escapeHtml(piece).replace(/\n/g, "<br>");
       return `<div class="spec-prose">${inner}</div>`;
@@ -83,6 +98,17 @@ function sanitizeWithRegex(html: string): string {
     const lower = tag.toLowerCase();
     if (!ALLOWED_TAGS.has(lower)) return "";
     if (match.startsWith("</")) return `</${lower}>`;
+    if (lower === "img") {
+      const src = match.match(/\bsrc=["']([^"']+)["']/i)?.[1];
+      const alt = match.match(/\balt=["']([^"']*)["']/i)?.[1] ?? "";
+      const klass = match.match(/\bclass=["']([^"']*)["']/i)?.[1];
+      const classAttr =
+        klass === "chem-formula-img" ? ` class="chem-formula-img"` : "";
+      if (src && (src.startsWith("chemimg:") || src.startsWith("blob:") || src.startsWith("data:image/"))) {
+        return `<img src="${src.replace(/"/g, "&quot;")}" alt="${alt.replace(/"/g, "&quot;")}"${classAttr}>`;
+      }
+      return "";
+    }
     const cleaned = stripForbiddenAttributes(match);
     const nameMatch = cleaned.match(/^<([a-z][a-z0-9]*)/i);
     if (!nameMatch) return "";
@@ -107,8 +133,20 @@ function sanitizeElement(root: Element): void {
         el.removeAttribute(attr.name);
       }
       if (attr.name === "class") {
-        const allowed = tag === "div" && attr.value === "spec-prose";
+        const allowed =
+          (tag === "div" && attr.value === "spec-prose") ||
+          (tag === "img" && attr.value === "chem-formula-img");
         if (!allowed) el.removeAttribute("class");
+      }
+      if (tag === "img" && attr.name === "src") {
+        const v = attr.value;
+        if (
+          !v.startsWith("chemimg:") &&
+          !v.startsWith("blob:") &&
+          !v.startsWith("data:image/")
+        ) {
+          el.removeAttribute("src");
+        }
       }
     }
   }
@@ -140,7 +178,7 @@ export function sanitizeSpecHtml(html: string): string {
 
 /** 편집기 DOM → 저장 문자열 (표는 HTML, 주변 문단은 평문) */
 export function normalizeEditorHtmlToStored(html: string): string {
-  const safe = sanitizeSpecHtml(html);
+  const safe = sanitizeSpecHtml(revertChemImgSrcInContent(html));
   if (!safe) return "";
 
   if (typeof DOMParser === "undefined") {
@@ -168,6 +206,8 @@ export function normalizeEditorHtmlToStored(html: string): string {
     const tag = node.tagName.toLowerCase();
     if (tag === "table") {
       pushChunk(node.outerHTML);
+    } else if (tag === "img") {
+      pushChunk(node.outerHTML);
     } else if (node.classList.contains("spec-prose")) {
       pushChunk(node.innerText);
     } else if (tag === "p") {
@@ -189,7 +229,7 @@ export function normalizeEditorHtmlToStored(html: string): string {
     }
   }
 
-  return chunks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+  return revertChemImgSrcInContent(chunks.join("\n\n").replace(/\n{3,}/g, "\n\n").trim());
 }
 
 export function applyContentToEditor(el: HTMLElement, content: string): void {

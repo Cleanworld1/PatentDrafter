@@ -32,8 +32,8 @@ export function DraftOptionsForm() {
           <div className="invention-making-copy">
             <span className="invention-making-label">{CHEMICAL_INVENTION_MODE_LABEL}</span>
             <p className="settings-card-hint">
-              활성화하면 화학·소재·공정 발명에 맞춰 실시예, 수치범위, 측정방법, 비교예, HTML 표 등
-              특허 실무 지침을 명세서 작성·보완 시 적용합니다.
+              활성화하면 1단계 발명 분석 후 <strong>2단계 실시예/비교예 분석</strong>이 실행되고,
+              실시예·비교예 HTML 표·구체적인 설명 주입·데이터 그래프 도면 지시가 명세서에 반영됩니다.
               {chemicalInventionEnabled && inventionMakingEnabled
                 ? " 발명 메이킹과 함께 켜면 수치한정범위 대비 실험예·비교예와 표 2~3개 구성을 우선합니다."
                 : ""}

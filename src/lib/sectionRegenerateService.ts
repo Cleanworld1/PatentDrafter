@@ -7,6 +7,9 @@ import {
 } from "@/lib/sectionOutputSanitizer";
 import type { CurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
 import { buildRegenerateSectionPrompt } from "@/prompts/regenerateSection";
+import { finalizeChemicalFormulaSectionContent } from "@/lib/chemicalFormulaContent";
+import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
+import type { ChemicalFormulaImageRef } from "@/types/chemicalFormulaImage";
 import type { ClaimDraft, InventionAnalysis } from "@/types/patentDraft";
 import type { OpenAiCredentialInput } from "@/types/openAiCredentials";
 import type { SpecificationSectionType } from "@/types/specificationSection";
@@ -21,6 +24,8 @@ export interface RegenerateSectionInput {
   drawingContext?: CurrentDrawingContext;
   inventionMakingEnabled?: boolean;
   chemicalInventionEnabled?: boolean;
+  chemicalEmbodimentAnalysis?: ChemicalEmbodimentAnalysis | null;
+  chemicalFormulaCatalog?: ChemicalFormulaImageRef[];
 }
 
 function mockSectionContent(input: RegenerateSectionInput): string {
@@ -65,6 +70,7 @@ export async function regenerateSpecificationSection(
     return sanitizeClaimSectionOutput(text, input.sectionTitle);
   }
   text = stripDuplicateSectionHeading(text, input.sectionTitle);
+  text = finalizeChemicalFormulaSectionContent(text, input.chemicalInventionEnabled);
   return normalizeSpecificationLineBreaks(text);
 }
 

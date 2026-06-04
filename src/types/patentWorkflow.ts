@@ -3,6 +3,7 @@ import type { ClaimDraft, DrawingPrompt, DraftOptions, InventionAnalysis, Specif
 export type WorkflowStep =
   | "input"
   | "analyzed"
+  | "embodiment_analyzed"
   | "claims_drafted"
   | "drawings_planned"
   | "drawing_prompts_done"
@@ -13,7 +14,8 @@ export type WorkflowStep =
 
 export const WORKFLOW_STEP_LABELS: Record<WorkflowStep, string> = {
   input: "입력",
-  analyzed: "자료 분석 완료",
+  analyzed: "1단계 발명 분석 완료",
+  embodiment_analyzed: "2단계 실시예/비교예 분석 완료",
   claims_drafted: "청구항 초안 완료",
   drawings_planned: "도면 구성 기획 완료",
   drawing_prompts_done: "도면 프롬프트 완료",
@@ -82,6 +84,7 @@ export interface WorkflowContext {
   analysis: InventionAnalysis;
   options: DraftOptions;
   projectName: string;
+  chemicalEmbodimentAnalysis?: import("@/types/chemicalEmbodimentAnalysis").ChemicalEmbodimentAnalysis | null;
 }
 
 export function createEmptyWorkflowState(): WorkflowState {

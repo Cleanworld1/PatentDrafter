@@ -1,5 +1,13 @@
 import { assembleSpecificationFromWorkflow } from "@/lib/workflow/assembleSpecification";
+import {
+  appendGraphDrawingPrompts,
+  appendGraphDrawingsToPlan,
+  mergeChemicalEmbodimentIntoDetailedDescription
+} from "@/lib/chemicalEmbodimentApply";
+import { analyzeChemicalEmbodimentsOrMock } from "@/lib/ai/analyzeChemicalEmbodiments";
 import { analyzeMaterialsWithAi, type IncomingMaterialFile } from "@/lib/ai/patentDraftAiService";
+import { isChemicalInventionEnabled } from "@/knowledge/chemicalInventionRules";
+import { resolveOpenAiCredentials, isDevMockWithoutKeyAllowed } from "@/lib/ai/resolveOpenAiCredentials";
 import type { AnalyzeMaterialsPayload } from "@/lib/fileInput/fileInputTypes";
 import { formatFullDraftMarkdown } from "@/lib/markdownFormatter";
 import { CLAIM_GUIDELINE } from "@/prompts/guidelines/claimGuideline";
@@ -28,9 +36,10 @@ const STYLE =
 export function toWorkflowContext(
   analysis: InventionAnalysis,
   options: DraftOptions,
-  projectName: string
+  projectName: string,
+  chemicalEmbodimentAnalysis?: import("@/types/chemicalEmbodimentAnalysis").ChemicalEmbodimentAnalysis | null
 ): WorkflowContext {
-  return { analysis, options, projectName };
+  return { analysis, options, projectName, chemicalEmbodimentAnalysis: chemicalEmbodimentAnalysis ?? null };
 }
 
 export function toGenerateOptions(options: DraftOptions, projectName: string): GenerateSpecOptions {
@@ -146,7 +155,7 @@ export function generateDrawingPlan(
 
   const types: DrawingPrompt["drawing_type"][] = ["시스템도", "구성도", "흐름도", "흐름도", "UI도"];
 
-  return titles.map((title, index) => ({
+  const basePlan = titles.map((title, index) => ({
     figure_number: index + 1,
     title,
     purpose:
@@ -159,6 +168,8 @@ export function generateDrawingPlan(
     required_elements: ctx.analysis.essential_elements.slice(0, 6),
     claim_support: index === 0 ? [1] : claimDrafts.length > 1 ? [1, Math.min(2, claimDrafts.length)] : [1]
   }));
+
+  return appendGraphDrawingsToPlan(basePlan, ctx.chemicalEmbodimentAnalysis, count);
 }
 
 export function generateDrawingPrompts(
@@ -166,7 +177,7 @@ export function generateDrawingPrompts(
   drawingPlan: DrawingPlanItem[],
   claimDrafts: ClaimDraft[]
 ): DrawingPrompt[] {
-  return drawingPlan.map((plan) => ({
+  const base = drawingPlan.map((plan) => ({
     figure_number: plan.figure_number,
     title: plan.title,
     drawing_type: plan.drawing_type,
@@ -182,6 +193,12 @@ export function generateDrawingPrompts(
       "구성요소마다 하나의 참조번호만 부여(동일 구성 중복 부호 금지). 동일 번호는 동일 구성만 가리킴. 100번대 구성요소, 200번대 데이터 흐름.",
     style_instruction: STYLE
   }));
+
+  return appendGraphDrawingPrompts(
+    base,
+    ctx.chemicalEmbodimentAnalysis,
+    Math.max(1, ctx.options.drawingCount)
+  );
 }
 
 export function reviewClaimDrawingConsistency(
@@ -268,7 +285,10 @@ export function generateDetailedDescription(
     `청구항 1에 기재된 ${claimDrafts[0]?.text.slice(0, 60) ?? "핵심 구성"}은(는) 상기 도면 설명에서 설명된 바와 같이 실시될 수 있다.`
   );
 
-  return parts.join("\n");
+  return mergeChemicalEmbodimentIntoDetailedDescription(
+    parts.join("\n"),
+    ctx.chemicalEmbodimentAnalysis
+  );
 }
 
 export function generateMeansForSolving(ctx: WorkflowContext, claimDrafts: ClaimDraft[]): string {
@@ -385,7 +405,7 @@ export async function executeWorkflowFromAnalysis(
 
   state.inventionCategory = inferInventionCategory(ctx);
   state.protectionPoints = deriveProtectionPoints(ctx);
-  state.workflowStep = "analyzed";
+  state.workflowStep = ctx.chemicalEmbodimentAnalysis ? "embodiment_analyzed" : "analyzed";
 
   state.claimDrafts = generateClaimDraft(ctx);
   state.workflowStep = "claims_drafted";
@@ -432,7 +452,26 @@ export async function createFullDraftViaWorkflow(
   credentials?: import("@/types/openAiCredentials").OpenAiCredentialInput
 ): Promise<FullDraftResult> {
   const { analysis } = await analyzeMaterialsWithAi(payload, files, credentials);
-  const ctx = toWorkflowContext(analysis, payload.options, payload.projectName);
+
+  let chemicalEmbodimentAnalysis: import("@/types/chemicalEmbodimentAnalysis").ChemicalEmbodimentAnalysis | null =
+    null;
+  if (isChemicalInventionEnabled(payload.options.chemicalInventionEnabled)) {
+    const resolved = resolveOpenAiCredentials(credentials);
+    const useDevMock = !resolved && isDevMockWithoutKeyAllowed();
+    chemicalEmbodimentAnalysis = await analyzeChemicalEmbodimentsOrMock(
+      { ...payload, invention_analysis: analysis },
+      files,
+      credentials,
+      useDevMock
+    );
+  }
+
+  const ctx = toWorkflowContext(
+    analysis,
+    payload.options,
+    payload.projectName,
+    chemicalEmbodimentAnalysis
+  );
 
   const workflow = await executeWorkflowFromAnalysis(ctx);
   const specification = assembleSpecificationFromWorkflow(workflow, analysis);
@@ -450,7 +489,8 @@ export async function createFullDraftViaWorkflow(
     claims: workflow.claimDrafts,
     drawing_prompts: workflow.drawingPrompts,
     review,
-    workflow
+    workflow,
+    chemical_embodiment_analysis: chemicalEmbodimentAnalysis ?? undefined
   };
 
   return {

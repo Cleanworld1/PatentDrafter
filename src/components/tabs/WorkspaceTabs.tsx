@@ -10,6 +10,7 @@ import { DrawingPromptsTab } from "@/components/tabs/DrawingPromptsTab";
 import { ReviewTab } from "@/components/tabs/ReviewTab";
 import { MarkdownTab } from "@/components/tabs/MarkdownTab";
 import { RawDataTab } from "@/components/tabs/RawDataTab";
+import { SupplementChatTab } from "@/components/tabs/SupplementChatTab";
 import { WorkspaceTabActions } from "@/components/tabs/WorkspaceTabActions";
 import { useSaveShortcut } from "@/lib/client/useSaveShortcut";
 import { useSpecEditorViewportStore } from "@/store/specEditorViewportStore";
@@ -37,7 +38,9 @@ export function WorkspaceTabs() {
       ? "명세서 항목을 작성 중입니다…"
       : loadingStage === "review"
         ? "청구항과 본문 정합성을 검토 중입니다…"
-        : "";
+        : loadingStage === "supplement_chat"
+          ? "AI 보완 응답을 작성 중입니다…"
+          : "";
 
   return (
     <div className="workspace-tabs-container">
@@ -66,6 +69,7 @@ export function WorkspaceTabs() {
         {activeTab === "claims" && <ClaimsTab />}
         {activeTab === "drawings" && <DrawingPromptsTab />}
         {activeTab === "review" && <ReviewTab />}
+        {activeTab === "supplement_chat" && <SupplementChatTab />}
         {activeTab === "markdown" && <MarkdownTab />}
         {activeTab === "json" && <RawDataTab />}
       </div>

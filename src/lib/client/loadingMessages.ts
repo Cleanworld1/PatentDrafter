@@ -12,9 +12,17 @@ export function getLoadingOverlayContent(
 ): LoadingOverlayContent | null {
   if (loadingStage === "analyze") {
     return {
-      title: "발명 분석 중",
+      title: "1단계 발명 분석 중",
       message: "업로드한 자료와 입력 내용을 분석하고 있습니다.",
       hint: "파일·이미지가 많으면 시간이 더 걸릴 수 있습니다."
+    };
+  }
+
+  if (loadingStage === "chemical_embodiment") {
+    return {
+      title: "2단계 실시예/비교예 분석",
+      message: "실시예·비교예 표, 수치한정, 구체적인 설명 주입안, 데이터 그래프 도면 지시를 작성하고 있습니다.",
+      hint: "화학 발명 모드에서만 실행됩니다. 실험 자료가 많으면 시간이 더 걸릴 수 있습니다."
     };
   }
 
@@ -40,5 +48,10 @@ export function getLoadingOverlayContent(
 }
 
 export function shouldShowLoadingOverlay(loadingStage: LoadingStage): boolean {
-  return loadingStage === "analyze" || loadingStage === "full" || loadingStage === "refine";
+  return (
+    loadingStage === "analyze" ||
+    loadingStage === "chemical_embodiment" ||
+    loadingStage === "full" ||
+    loadingStage === "refine"
+  );
 }

@@ -1,4 +1,13 @@
 import type { DrawingPrompt, InventionAnalysis, SpecificationReview } from "@/types/patentDraft";
+import type {
+  ChemicalEmbodimentAnalysis,
+  ChemicalEmbodimentExample,
+  ChemicalEmbodimentTable,
+  ChemicalExampleKind,
+  ChemicalGraphDrawingSpec,
+  ChemicalNumericalRangeGuide
+} from "@/types/chemicalEmbodimentAnalysis";
+import { emptyChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 
 const stringFields: (keyof InventionAnalysis)[] = [
   "technical_field",
@@ -125,6 +134,104 @@ export function normalizeDrawingPrompts(value: unknown): DrawingPrompt[] {
       style_instruction: coerceString(raw.style_instruction)
     };
   });
+}
+
+const EXAMPLE_KINDS: ChemicalExampleKind[] = [
+  "embodiment",
+  "preferred_embodiment",
+  "comparative"
+];
+
+function normalizeExampleKind(value: unknown): ChemicalExampleKind {
+  const s = coerceString(value);
+  return EXAMPLE_KINDS.includes(s as ChemicalExampleKind)
+    ? (s as ChemicalExampleKind)
+    : "embodiment";
+}
+
+function normalizeExamples(value: unknown): ChemicalEmbodimentExample[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item, i) => {
+    const raw = (item ?? {}) as Record<string, unknown>;
+    return {
+      id: coerceString(raw.id) || `example_${i + 1}`,
+      kind: normalizeExampleKind(raw.kind),
+      label: coerceString(raw.label) || `실시예 ${i + 1}`,
+      process_conditions: coerceString(raw.process_conditions),
+      reagents_and_amounts: coerceString(raw.reagents_and_amounts),
+      measurement_summary: coerceString(raw.measurement_summary),
+      results: coerceString(raw.results),
+      technical_meaning: coerceString(raw.technical_meaning)
+    };
+  });
+}
+
+function normalizeTables(value: unknown): ChemicalEmbodimentTable[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item, i) => {
+    const raw = (item ?? {}) as Record<string, unknown>;
+    return {
+      caption: coerceString(raw.caption) || `[표 ${i + 1}]`,
+      html_table: coerceString(raw.html_table),
+      interpretation: coerceString(raw.interpretation)
+    };
+  });
+}
+
+function normalizeNumericalRanges(value: unknown): ChemicalNumericalRangeGuide[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item ?? {}) as Record<string, unknown>;
+    return {
+      parameter_name: coerceString(raw.parameter_name),
+      full_range: coerceString(raw.full_range),
+      preferred_range: coerceString(raw.preferred_range),
+      lower_bound_issue: coerceString(raw.lower_bound_issue),
+      upper_bound_issue: coerceString(raw.upper_bound_issue),
+      critical_effect_note: coerceString(raw.critical_effect_note)
+    };
+  });
+}
+
+function normalizeGraphDrawings(value: unknown): ChemicalGraphDrawingSpec[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const raw = (item ?? {}) as Record<string, unknown>;
+    return {
+      title: coerceString(raw.title),
+      chart_type: coerceString(raw.chart_type) || "막대 그래프",
+      x_axis: coerceString(raw.x_axis),
+      y_axis: coerceString(raw.y_axis),
+      data_series_description: coerceString(raw.data_series_description),
+      purpose: coerceString(raw.purpose),
+      related_table_caption: coerceString(raw.related_table_caption) || undefined
+    };
+  });
+}
+
+export function normalizeChemicalEmbodimentAnalysis(
+  value: Partial<ChemicalEmbodimentAnalysis> | null | undefined
+): ChemicalEmbodimentAnalysis {
+  const raw = (value ?? {}) as Record<string, unknown>;
+  const inj = (raw.detailed_description_injection ?? {}) as Record<string, unknown>;
+  return {
+    invention_subtype: coerceString(raw.invention_subtype),
+    writing_guidelines_summary: coerceString(raw.writing_guidelines_summary),
+    numerical_ranges: normalizeNumericalRanges(raw.numerical_ranges),
+    examples: normalizeExamples(raw.examples),
+    tables: normalizeTables(raw.tables),
+    detailed_description_injection: {
+      opening_paragraph: coerceString(inj.opening_paragraph),
+      embodiment_paragraphs: coerceStringArray(inj.embodiment_paragraphs),
+      preferred_embodiment_paragraph: coerceString(inj.preferred_embodiment_paragraph),
+      linked_effects_paragraph: coerceString(inj.linked_effects_paragraph)
+    },
+    linked_effects: coerceStringArray(raw.linked_effects),
+    graph_drawings: normalizeGraphDrawings(raw.graph_drawings),
+    measurement_methods: coerceStringArray(raw.measurement_methods),
+    claim_support_notes: coerceStringArray(raw.claim_support_notes),
+    uncertainties: coerceStringArray(raw.uncertainties)
+  };
 }
 
 export function parseJsonWithFallback<T>(raw: string, fallback: T): { data: T; raw: string; error?: string } {

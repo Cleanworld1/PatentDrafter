@@ -1,4 +1,6 @@
+import { getChemicalFormulaRulesBlock } from "@/knowledge/chemicalFormulaRules";
 import { CHEMICAL_INVENTION_SPEC_PROMPT } from "@/knowledge/chemicalInventionPrompt";
+import type { ChemicalFormulaImageRef } from "@/types/chemicalFormulaImage";
 import type { SpecificationSectionType } from "@/types/specificationSection";
 
 export const CHEMICAL_INVENTION_MODE_LABEL = "화학 발명";
@@ -7,13 +9,24 @@ export function isChemicalInventionEnabled(value: boolean | undefined | null): b
   return Boolean(value);
 }
 
-export function getChemicalInventionRulesBlock(enabled: boolean | undefined): string {
+export function getChemicalInventionRulesBlock(
+  enabled: boolean | undefined,
+  formulaCatalog: ChemicalFormulaImageRef[] = []
+): string {
   if (!isChemicalInventionEnabled(enabled)) return "";
 
   return `[${CHEMICAL_INVENTION_MODE_LABEL} — 활성]
 아래 지침을 명세서·청구항 작성의 최우선 참고 문서로 적용하라.
 
-${CHEMICAL_INVENTION_SPEC_PROMPT}`;
+${CHEMICAL_INVENTION_SPEC_PROMPT}
+
+${getChemicalFormulaRulesBlock(enabled, formulaCatalog)}`;
+}
+
+/** 1단계 발명 분석 프롬프트용 — 2단계 실시예/비교예 분석 안내 */
+export function getChemicalInventionStageNotes(enabled: boolean | undefined): string {
+  if (!isChemicalInventionEnabled(enabled)) return "";
+  return `- ${CHEMICAL_INVENTION_MODE_LABEL}: 발명 분석(1단계) 완료 후 **2단계 실시예/비교예 분석**이 자동 실행된다. 실험·비교·수치 데이터는 table_or_experiment_data_analysis, control_conditions, expected_effects에 구체적으로 기재하라.`;
 }
 
 export function getChemicalInventionRegenerateNote(enabled: boolean | undefined): string {
@@ -32,7 +45,8 @@ export function getChemicalInventionSectionNote(
   switch (sectionType) {
     case "detailed_description":
       return `[화학 발명 — 구체적인 내용]
-실시예·비교예를 구분하고, 공정 단계·시약·투입 기준·측정방법을 구체적으로 기재하라. 실험 데이터는 HTML <table>과 <caption>으로 정리하고, 표 아래에 임계적 효과·수치범위 대응 해석을 작성하라.`;
+실시예·비교예를 구분하고, 공정 단계·시약·투입 기준·측정방법을 구체적으로 기재하라. 실험 데이터는 HTML <table>과 <caption>으로 정리하고, 표 아래에 임계적 효과·수치범위 대응 해석을 작성하라.
+업로드 자료의 화학식·구조식 그림은 chemimg 이미지로 삽입하고, 각 이미지 **바로 윗줄**에 [화학식 N]을 단독으로 기재하라.`;
 
     case "effects":
       return `[화학 발명 — 효과]

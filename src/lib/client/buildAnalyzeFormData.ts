@@ -1,7 +1,7 @@
 import { appendOpenAiToFormData } from "@/lib/client/appendOpenAiFields";
 import { getFileBlob } from "@/lib/client/fileBlobRegistry";
 import type { AnalyzeMaterialsPayload } from "@/lib/fileInput/fileInputTypes";
-import type { PatentDraftSnapshot } from "@/types/patentDraft";
+import type { InventionAnalysis, PatentDraftSnapshot } from "@/types/patentDraft";
 
 export function buildAnalyzeMaterialsPayload(state: {
   currentProject: { title: string };
@@ -38,6 +38,33 @@ export function buildMaterialsFormData(state: {
 }): FormData {
   const formData = new FormData();
   const payload = buildAnalyzeMaterialsPayload(state);
+  formData.append("payload", JSON.stringify(payload));
+
+  for (const meta of payload.materials) {
+    const file = getFileBlob(meta.fileId);
+    if (file) {
+      formData.append(meta.fileId, file, file.name);
+    }
+  }
+
+  appendOpenAiToFormData(formData);
+  return formData;
+}
+
+export function buildChemicalEmbodimentFormData(
+  state: {
+    currentProject: { title: string };
+    textInputs: PatentDraftSnapshot["textInputs"];
+    uploadedFiles: PatentDraftSnapshot["uploadedFiles"];
+    options: PatentDraftSnapshot["options"];
+  },
+  invention_analysis: InventionAnalysis
+): FormData {
+  const formData = new FormData();
+  const payload = {
+    ...buildAnalyzeMaterialsPayload(state),
+    invention_analysis
+  };
   formData.append("payload", JSON.stringify(payload));
 
   for (const meta of payload.materials) {

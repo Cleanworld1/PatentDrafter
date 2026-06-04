@@ -1,3 +1,5 @@
+import { getChemicalEmbodimentAnalysisBlock } from "@/knowledge/chemicalEmbodimentContext";
+import type { ChemicalFormulaImageRef } from "@/types/chemicalFormulaImage";
 import {
   getChemicalInventionRegenerateNote,
   getChemicalInventionRulesBlock,
@@ -19,6 +21,7 @@ import {
   type CurrentDrawingContext
 } from "@/lib/drawingContextForRegenerate";
 import { getSectionOutputNoHeadingRule } from "@/lib/sectionOutputSanitizer";
+import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 import type { ClaimDraft, InventionAnalysis } from "@/types/patentDraft";
 import type { SpecificationSectionType } from "@/types/specificationSection";
 
@@ -31,6 +34,8 @@ export interface RegenerateSectionPromptInput {
   userInstruction?: string;
   inventionMakingEnabled?: boolean;
   chemicalInventionEnabled?: boolean;
+  chemicalEmbodimentAnalysis?: ChemicalEmbodimentAnalysis | null;
+  chemicalFormulaCatalog?: ChemicalFormulaImageRef[];
   /** 명세서 편집기에 있는 현재 도면 목록·개수 */
   drawingContext?: CurrentDrawingContext;
 }
@@ -80,7 +85,10 @@ ${getInventionMakingRulesBlock(input.inventionMakingEnabled)}
 
 ${getInventionMakingSectionNote(input.sectionType, input.inventionMakingEnabled)}
 
-${getChemicalInventionRulesBlock(input.chemicalInventionEnabled)}
+${getChemicalInventionRulesBlock(
+  input.chemicalInventionEnabled,
+  input.chemicalFormulaCatalog ?? []
+)}
 
 ${getChemicalInventionMakingRulesBlock(
   input.chemicalInventionEnabled,
@@ -94,6 +102,8 @@ ${getChemicalInventionMakingSectionNote(
   input.chemicalInventionEnabled,
   input.inventionMakingEnabled
 )}
+
+${getChemicalEmbodimentAnalysisBlock(input.chemicalEmbodimentAnalysis)}
 
 위 정보를 바탕으로 대상 항목만 다시 작성하라.
 

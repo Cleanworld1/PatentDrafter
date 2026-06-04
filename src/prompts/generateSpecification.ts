@@ -5,8 +5,12 @@ import {
   getSpecificationStyleRules,
   type PatentSectionGuidelines
 } from "@/knowledge/patentSectionGuidelines";
+import { buildChemicalFormulaCatalog } from "@/lib/chemicalFormulaCatalog";
+import { getChemicalEmbodimentAnalysisBlock } from "@/knowledge/chemicalEmbodimentContext";
 import { getChemicalInventionRulesBlock } from "@/knowledge/chemicalInventionRules";
+import type { UploadedFile } from "@/types/patentDraft";
 import { getChemicalInventionMakingRulesBlock } from "@/knowledge/chemicalInventionMakingRules";
+import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 import { getInventionMakingRulesBlock } from "@/knowledge/inventionMakingRules";
 import type { DraftOptions, GenerateSpecOptions, InventionAnalysis } from "@/types/patentDraft";
 
@@ -28,6 +32,8 @@ export interface GenerateSpecificationPromptInput {
   analysis: InventionAnalysis;
   options: GenerateSpecOptions | DraftOptions;
   sectionGuidelines?: PatentSectionGuidelines;
+  chemicalEmbodimentAnalysis?: ChemicalEmbodimentAnalysis | null;
+  uploadedFiles?: UploadedFile[];
 }
 
 function normalizeSpecOptions(options: GenerateSpecOptions | DraftOptions): GenerateSpecOptions {
@@ -46,6 +52,9 @@ export function buildGenerateSpecificationPrompt(input: GenerateSpecificationPro
   const options = normalizeSpecOptions(input.options);
   const guidelines = input.sectionGuidelines ?? getAllSectionGuidelines();
   const { inventionMaking, chemicalInvention } = readSpecModeFlags(input.options);
+  const formulaCatalog = chemicalInvention
+    ? buildChemicalFormulaCatalog(input.uploadedFiles ?? [])
+    : [];
 
   return `당신은 국내 특허출원용 명세서 초안 작성 보조자입니다. 발명 분석표를 바탕으로 명세서 초안 JSON만 출력하십시오.
 
@@ -61,9 +70,11 @@ ${getFullSectionGuidelinesText()}
 
 ${getInventionMakingRulesBlock(inventionMaking)}
 
-${getChemicalInventionRulesBlock(chemicalInvention)}
+${getChemicalInventionRulesBlock(chemicalInvention, formulaCatalog)}
 
 ${getChemicalInventionMakingRulesBlock(chemicalInvention, inventionMaking)}
+
+${chemicalInvention ? getChemicalEmbodimentAnalysisBlock(input.chemicalEmbodimentAnalysis) : ""}
 
 요구 청구항 수: ${options.desiredClaimCount}
 요구 도면 수: ${options.desiredDrawingCount}

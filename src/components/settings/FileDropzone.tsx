@@ -8,12 +8,14 @@ import {
 } from "@/lib/fileExtractService";
 import { getAiInputModeLabel, getFileStatusLabel } from "@/lib/fileInput/detectFileType";
 import { registerFileBlob, removeFileBlob } from "@/lib/client/fileBlobRegistry";
+import { registerChemicalFormulaFileIfApplicable } from "@/lib/client/syncChemicalFormulaObjectUrls";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 import type { MaterialType, UploadedFile } from "@/types/patentDraft";
 import { MATERIAL_TYPES } from "@/types/patentDraft";
 
 export function FileDropzone() {
   const addUploadedFile = usePatentDraftStore((s) => s.addUploadedFile);
+  const chemicalInventionEnabled = usePatentDraftStore((s) => s.options.chemicalInventionEnabled);
   const [dragOver, setDragOver] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -28,10 +30,11 @@ export function FileDropzone() {
         const entry = createUploadedFileFromBrowserFile(file);
         entry.fileObjectRef = entry.id;
         registerFileBlob(entry.id, file);
+        registerChemicalFormulaFileIfApplicable(entry, file, chemicalInventionEnabled);
         addUploadedFile(entry);
       }
     },
-    [addUploadedFile]
+    [addUploadedFile, chemicalInventionEnabled]
   );
 
   const extensions = getSupportedExtensions().join(", ");

@@ -941,6 +941,23 @@ button:disabled,
   margin-top: 4px;
 }
 
+.generation-stage2-wrap {
+  margin: 6px 0 10px;
+  padding-left: 10px;
+  border-left: 3px solid #93c5fd;
+}
+
+.generation-stage2-btn {
+  margin-top: 0;
+}
+
+.generation-stage2-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 /* Workspace Tabs */
 .workspace-tabs-container {
   flex: 1;
@@ -1687,6 +1704,16 @@ body.spec-editor-fullscreen-active .tab-content {
 .spec-section-content .spec-prose {
   white-space: pre-wrap;
   margin: 0 0 10px;
+}
+
+.spec-section-content img.chem-formula-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 8px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
 }
 
 .spec-section-content table {
@@ -2513,6 +2540,301 @@ body.spec-editor-fullscreen-active .tab-content {
   line-height: 1.6;
   resize: vertical;
   background: var(--white);
+}
+
+/* 2단계 실시예/비교예 분석 */
+.chemical-embodiment-view {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #f0f9ff;
+}
+
+.chemical-embodiment-view-header h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.chemical-embodiment-view-sub {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.chemical-embodiment-view-summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.chemical-example-card {
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: var(--white);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.chemical-example-card h5 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.chemical-example-kind {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.chemical-html-table-wrap {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.chemical-html-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.chemical-table-interpretation {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* AI 보완 채팅 */
+.tab-panel--supplement-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.supplement-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.supplement-chat-empty {
+  padding: 32px 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.supplement-chat-header {
+  flex-shrink: 0;
+  padding: 16px 20px 8px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.supplement-chat-title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.supplement-chat-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  padding-right: 88px;
+}
+
+.supplement-chat-clear {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-size: 12px;
+}
+
+.supplement-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.supplement-chat-bubble {
+  max-width: 92%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--white);
+}
+
+.supplement-chat-bubble--user {
+  align-self: flex-end;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.supplement-chat-bubble--assistant {
+  align-self: flex-start;
+  background: #f8fafc;
+}
+
+.supplement-chat-bubble--system {
+  align-self: center;
+  max-width: 100%;
+  background: #f1f5f9;
+  font-size: 12px;
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.supplement-chat-bubble-role {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.supplement-chat-bubble-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.supplement-chat-typing {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.supplement-chat-attachments-label {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.supplement-chat-updates {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.supplement-chat-update-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.supplement-chat-update-reason {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.supplement-chat-composer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: 12px 20px 16px;
+  background: #fafbfc;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.supplement-chat-composer.is-drag-over {
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.supplement-chat-attach-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.supplement-chat-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 999px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  max-width: 220px;
+}
+
+.supplement-chat-attach-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supplement-chat-attach-chip button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+.supplement-chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.supplement-chat-file-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.supplement-chat-textarea {
+  flex: 1;
+  min-height: 72px;
+  max-height: 200px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.supplement-chat-send {
+  flex-shrink: 0;
+  align-self: flex-end;
+  min-width: 64px;
+}
+
+.supplement-chat-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--muted);
 }
 
 /* TODO: Mobile responsive */

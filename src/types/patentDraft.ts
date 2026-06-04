@@ -118,6 +118,7 @@ export interface FullDraftResult {
   review: SpecificationReview;
   markdown: string;
   workflow?: import("@/types/patentWorkflow").WorkflowState;
+  chemical_embodiment_analysis?: import("@/types/chemicalEmbodimentAnalysis").ChemicalEmbodimentAnalysis;
   raw_response?: string;
   error_message?: string;
 }
@@ -254,11 +255,13 @@ export type WorkspaceTab =
   | "claims"
   | "drawings"
   | "review"
+  | "supplement_chat"
   | "markdown"
   | "json";
 
 export const WORKSPACE_TABS: { id: WorkspaceTab; label: string }[] = [
   { id: "spec_edit", label: "명세서 편집" },
+  { id: "supplement_chat", label: "AI 보완" },
   { id: "analysis", label: "발명 분석표" },
   { id: "claims", label: "청구항" },
   { id: "drawings", label: "도면 프롬프트" },
@@ -279,7 +282,9 @@ export type LoadingStage =
   | "generate"
   | "review"
   | "full"
-  | "refine";
+  | "refine"
+  | "supplement_chat"
+  | "chemical_embodiment";
 
 export interface PatentDraftSnapshot {
   currentProject: ProjectRecord;
@@ -294,4 +299,6 @@ export interface PatentDraftSnapshot {
   drawingPrompts: DrawingPrompt[];
   review: SpecificationReview | null;
   markdown: string;
+  supplementChatMessages?: import("@/types/supplementChat").SupplementChatMessage[];
+  chemicalEmbodimentAnalysis?: import("@/types/chemicalEmbodimentAnalysis").ChemicalEmbodimentAnalysis | null;
 }

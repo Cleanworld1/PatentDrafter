@@ -1,11 +1,13 @@
 "use client";
 
+import { ChemicalEmbodimentAnalysisView } from "@/components/viewers/ChemicalEmbodimentAnalysisView";
 import { InventionAnalysisView } from "@/components/viewers/InventionAnalysisView";
 import { normalizeInventionAnalysis } from "@/lib/jsonSchema";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 
 export function AnalysisTab() {
   const analysis = usePatentDraftStore((s) => s.analysis);
+  const chemicalEmbodiment = usePatentDraftStore((s) => s.chemicalEmbodimentAnalysis);
   const normalized = analysis ? normalizeInventionAnalysis(analysis) : null;
 
   if (!normalized) {
@@ -14,6 +16,7 @@ export function AnalysisTab() {
 
   return (
     <div className="tab-panel tab-panel--scroll">
+      {chemicalEmbodiment && <ChemicalEmbodimentAnalysisView data={chemicalEmbodiment} />}
       <InventionAnalysisView analysis={normalized} />
     </div>
   );

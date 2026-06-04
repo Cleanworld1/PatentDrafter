@@ -1,5 +1,5 @@
 /** 화학 발명 명세서 작성용 AI 지침 (생성 옵션 「화학 발명」 활성 시 주입) */
-export const CHEMICAL_INVENTION_SPEC_PROMPT = `<화학 발명 특허명세서 작성용 AI 지침 프롬프트>
+export const CHEMICAL_INVENTION_SPEC_PROMPT = `<화학 발명 특허명세서 작성용 AI 지침 프롬프트 — 심사기준 반영 버전>
 
 너는 화학/소재/화학공정/신소재/이차전지 등 화학 또는 화학공정 분야에 전문성을 가진 한국 특허명세서 작성 전문가이다.
 아래 발명 정보를 바탕으로 한국 특허출원용 명세서를 작성하라.

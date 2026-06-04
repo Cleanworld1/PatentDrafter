@@ -1,8 +1,18 @@
 import { create } from "zustand";
 import { defaultDraftOptions } from "@/lib/defaultDraftOptions";
 import { buildJsonWithOpenAi } from "@/lib/client/appendOpenAiFields";
-import { buildMaterialsFormData } from "@/lib/client/buildAnalyzeFormData";
+import {
+  buildChemicalEmbodimentFormData,
+  buildMaterialsFormData
+} from "@/lib/client/buildAnalyzeFormData";
+import { buildSupplementChatFormData } from "@/lib/client/buildSupplementChatFormData";
+import {
+  clearSupplementChatBlobs,
+  getSupplementChatBlob,
+  removeSupplementChatBlob
+} from "@/lib/client/supplementChatBlobRegistry";
 import { validateMaterialsForAnalyze } from "@/lib/client/validateMaterialsUpload";
+import { buildReviewSummary, buildSpecContextSummary } from "@/lib/supplement/buildSpecContextSummary";
 import { formatFetchError, parseApiErrorResponse } from "@/lib/client/parseApiError";
 import { assertCanRunAi } from "@/store/sessionApiKeyStore";
 import { clearFileBlobs, getFileBlob, removeFileBlob } from "@/lib/client/fileBlobRegistry";
@@ -27,7 +37,20 @@ import {
   insertClaimSection,
   insertDrawingSection
 } from "@/lib/specificationSectionOrder";
-import { normalizeDrawingPrompts, normalizeInventionAnalysis } from "@/lib/jsonSchema";
+import {
+  normalizeChemicalEmbodimentAnalysis,
+  normalizeDrawingPrompts,
+  normalizeInventionAnalysis
+} from "@/lib/jsonSchema";
+import { buildChemicalFormulaCatalog } from "@/lib/chemicalFormulaCatalog";
+import { finalizeChemicalFormulaSectionContent } from "@/lib/chemicalFormulaContent";
+import {
+  clearChemicalFormulaObjectUrls,
+  syncChemicalFormulaObjectUrlsFromFiles,
+  unregisterChemicalFormulaFile
+} from "@/lib/client/syncChemicalFormulaObjectUrls";
+import { isChemicalInventionEnabled } from "@/knowledge/chemicalInventionRules";
+import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 import { formatFullDraftMarkdown } from "@/lib/markdownFormatter";
 import { createEmptySections, sectionsToSpecification, specificationToSections } from "@/lib/specificationSections";
 import { buildDetailedDescriptionElaborateInstruction } from "@/prompts/drawingFigureDescription";
@@ -55,6 +78,15 @@ import type {
 import { PROJECT_STATUS_LABELS } from "@/types/patentDraft";
 import type { WorkflowState } from "@/types/patentWorkflow";
 import { WORKFLOW_STEP_LABELS, createEmptyWorkflowState } from "@/types/patentWorkflow";
+import type {
+  SupplementChatMessage,
+  SupplementChatResponsePayload,
+  SupplementSectionUpdate
+} from "@/types/supplementChat";
+
+function createSupplementMessageId(): string {
+  return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
 
 function createDefaultProject(): ProjectRecord {
   const now = new Date().toISOString();
@@ -153,8 +185,72 @@ function getSnapshot(state: PatentDraftState): PatentDraftSnapshot {
     claims: state.claims,
     drawingPrompts: state.drawingPrompts,
     review: state.review,
-    markdown: state.markdown
+    markdown: state.markdown,
+    supplementChatMessages: state.supplementChatMessages,
+    chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis
   };
+}
+
+async function fetchChemicalEmbodimentAnalysis(
+  get: () => PatentDraftState
+): Promise<ChemicalEmbodimentAnalysis | null> {
+  const state = get();
+  if (!state.analysis || !isChemicalInventionEnabled(state.options.chemicalInventionEnabled)) {
+    return null;
+  }
+
+  const uploadError = validateMaterialsForAnalyze(state.uploadedFiles, getFileBlob);
+  if (uploadError) {
+    throw new Error(uploadError);
+  }
+
+  const formData = buildChemicalEmbodimentFormData(state, state.analysis);
+  const response = await fetch("/api/analyze-chemical-embodiments", {
+    method: "POST",
+    body: formData
+  });
+  if (!response.ok) {
+    throw new Error(
+      await parseApiErrorResponse(
+        response,
+        "실시예/비교예 분석에 실패했습니다",
+        "fetchChemicalEmbodimentAnalysis"
+      )
+    );
+  }
+  const data = (await response.json()) as {
+    chemical_embodiment_analysis: ChemicalEmbodimentAnalysis;
+  };
+  return normalizeChemicalEmbodimentAnalysis(data.chemical_embodiment_analysis);
+}
+
+async function applyChemicalEmbodimentStage(
+  get: () => PatentDraftState,
+  set: (partial: Partial<PatentDraftState> | ((state: PatentDraftState) => Partial<PatentDraftState>)) => void
+): Promise<void> {
+  set({ loadingStage: "chemical_embodiment", error: "" });
+  try {
+    assertCanRunAi();
+    const chemicalEmbodimentAnalysis = await fetchChemicalEmbodimentAnalysis(get);
+    set((s) => ({
+      chemicalEmbodimentAnalysis,
+      workflow: {
+        ...s.workflow,
+        workflowStep: "embodiment_analyzed"
+      }
+    }));
+    get().saveCurrentProject();
+  } catch (err) {
+    set({
+      error: formatFetchError(
+        err,
+        "실시예/비교예 분석(2단계) 중 오류가 발생했습니다.",
+        "runChemicalEmbodimentAnalyze"
+      )
+    });
+  } finally {
+    set({ loadingStage: "" });
+  }
 }
 
 let saveHintClearTimer: ReturnType<typeof setTimeout> | null = null;
@@ -228,6 +324,9 @@ interface PatentDraftState {
   historyVersion: number;
   lastSavedAt: string | null;
   saveHint: string;
+  supplementChatMessages: SupplementChatMessage[];
+  supplementChatAttachments: UploadedFile[];
+  chemicalEmbodimentAnalysis: ChemicalEmbodimentAnalysis | null;
 
   setProjectTitle: (title: string) => void;
   setTextInputs: (inputs: Partial<TextInputs>) => void;
@@ -247,6 +346,7 @@ interface PatentDraftState {
   refreshHistory: () => void;
 
   runAnalyze: () => Promise<void>;
+  runChemicalEmbodimentAnalyze: () => Promise<void>;
   runGenerateSpec: () => Promise<void>;
   runReview: () => Promise<void>;
   runFullDraft: () => Promise<void>;
@@ -261,6 +361,13 @@ interface PatentDraftState {
       markRelatedSectionsForReview?: "claim" | "drawing";
     }
   ) => Promise<void>;
+
+  initSupplementChatWelcome: () => void;
+  addSupplementAttachment: (file: UploadedFile) => void;
+  removeSupplementAttachment: (id: string) => void;
+  sendSupplementMessage: (text: string) => Promise<void>;
+  applySupplementUpdates: (updates: SupplementSectionUpdate[]) => void;
+  clearSupplementChat: () => void;
 
   getStatusLabel: () => string;
   getWorkflowStepLabel: () => string;
@@ -279,13 +386,42 @@ function emptyReview(): SpecificationReview {
   };
 }
 
+function applyChemicalFormulaToSections(
+  sections: SpecificationSection[],
+  chemicalInventionEnabled: boolean
+): SpecificationSection[] {
+  if (!isChemicalInventionEnabled(chemicalInventionEnabled)) return sections;
+  const formulaSections = new Set([
+    "detailed_description",
+    "means_for_solving",
+    "background_art",
+    "effects"
+  ]);
+  return sections.map((s) => {
+    if (!formulaSections.has(s.section_id) && !s.section_id.startsWith("claim_")) return s;
+    if (!s.content?.includes("<img") && !s.content?.includes("chemimg:")) return s;
+    return {
+      ...s,
+      content: finalizeChemicalFormulaSectionContent(s.content, true)
+    };
+  });
+}
+
 function applyFullDraftResult(
   set: (partial: Partial<PatentDraftState> | ((state: PatentDraftState) => Partial<PatentDraftState>)) => void,
   get: () => PatentDraftState,
   result: FullDraftResult
 ) {
   const { options } = get();
-  const sections = specificationToSections(result.specification, options.claimCount, options.drawingCount);
+  let sections = specificationToSections(result.specification, options.claimCount, options.drawingCount);
+  sections = applyChemicalFormulaToSections(sections, options.chemicalInventionEnabled);
+  if (isChemicalInventionEnabled(options.chemicalInventionEnabled)) {
+    syncChemicalFormulaObjectUrlsFromFiles(
+      get().uploadedFiles,
+      getFileBlob,
+      true
+    );
+  }
   set({
     analysis: normalizeInventionAnalysis(result.analysis),
     workflow: result.workflow ?? createEmptyWorkflowState(),
@@ -294,6 +430,9 @@ function applyFullDraftResult(
     drawingPrompts: normalizeDrawingPrompts(result.drawing_prompts),
     review: result.review,
     markdown: result.markdown,
+    chemicalEmbodimentAnalysis: result.chemical_embodiment_analysis
+      ? normalizeChemicalEmbodimentAnalysis(result.chemical_embodiment_analysis)
+      : null,
     currentProject: {
       ...get().currentProject,
       title: result.specification.invention_title || get().currentProject.title,
@@ -356,7 +495,11 @@ async function callRegenerateSection(
         state.drawingPrompts
       ),
       inventionMakingEnabled: state.options.inventionMakingEnabled,
-      chemicalInventionEnabled: state.options.chemicalInventionEnabled
+      chemicalInventionEnabled: state.options.chemicalInventionEnabled,
+      chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
+      chemicalFormulaCatalog: isChemicalInventionEnabled(state.options.chemicalInventionEnabled)
+        ? buildChemicalFormulaCatalog(state.uploadedFiles)
+        : []
     })
   });
   if (!response.ok) {
@@ -453,6 +596,9 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
     historyVersion: 0,
     lastSavedAt: null,
     saveHint: "",
+    supplementChatMessages: [],
+    supplementChatAttachments: [],
+    chemicalEmbodimentAnalysis: null,
 
     setProjectTitle: (title) => {
       set((state) => ({
@@ -489,7 +635,8 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         return {
           options,
           specificationSections: dedupeSpecificationSections(sections),
-          input: buildInventionInput(state.currentProject, state.textInputs, state.uploadedFiles, options)
+          input: buildInventionInput(state.currentProject, state.textInputs, state.uploadedFiles, options),
+          ...(opts.chemicalInventionEnabled === false ? { chemicalEmbodimentAnalysis: null } : {})
         };
       });
     },
@@ -516,6 +663,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
 
     removeUploadedFile: (id) => {
       removeFileBlob(id);
+      unregisterChemicalFormulaFile(id);
       set((state) => {
         const uploadedFiles = state.uploadedFiles.filter((f) => f.id !== id);
         return {
@@ -636,6 +784,8 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
 
     createNewProject: () => {
       clearFileBlobs();
+      clearSupplementChatBlobs();
+      clearChemicalFormulaObjectUrls();
       const project = createDefaultProject();
       const options = defaultOptions();
       set({
@@ -654,7 +804,10 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         activeTab: "spec_edit",
         loadingStage: "",
         error: "",
-        lastSavedAt: null
+        lastSavedAt: null,
+        supplementChatMessages: [],
+        supplementChatAttachments: [],
+        chemicalEmbodimentAnalysis: null
       });
     },
 
@@ -717,8 +870,176 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         markdown: snapshot.markdown,
         activeTab: "spec_edit",
         error: "",
-        lastSavedAt: snapshot.currentProject.updatedAt ?? null
+        lastSavedAt: snapshot.currentProject.updatedAt ?? null,
+        supplementChatMessages: snapshot.supplementChatMessages ?? [],
+        supplementChatAttachments: [],
+        chemicalEmbodimentAnalysis: snapshot.chemicalEmbodimentAnalysis
+          ? normalizeChemicalEmbodimentAnalysis(snapshot.chemicalEmbodimentAnalysis)
+          : null
       });
+      clearSupplementChatBlobs();
+      syncChemicalFormulaObjectUrlsFromFiles(
+        uploadedFiles,
+        getFileBlob,
+        get().options.chemicalInventionEnabled
+      );
+    },
+
+    initSupplementChatWelcome: () => {
+      const { supplementChatMessages } = get();
+      if (supplementChatMessages.length > 0) return;
+      const at = new Date().toISOString();
+      set({
+        supplementChatMessages: [
+          {
+            id: createSupplementMessageId(),
+            role: "system",
+            content: "명세서 초안 보완 모드입니다. 수정 요청·추가 자료를 입력하세요.",
+            at
+          },
+          {
+            id: createSupplementMessageId(),
+            role: "assistant",
+            content:
+              "자동 작성이 완료되었습니다. 보완이 필요한 항목이나 추가 실험·비교 자료가 있으면 메시지와 파일을 보내 주세요. AI가 답변하고, 필요 시 「명세서에 반영」으로 항목을 업데이트할 수 있습니다.",
+            at
+          }
+        ]
+      });
+    },
+
+    addSupplementAttachment: (file) => {
+      set((state) => ({
+        supplementChatAttachments: [...state.supplementChatAttachments, file]
+      }));
+    },
+
+    removeSupplementAttachment: (id) => {
+      set((state) => ({
+        supplementChatAttachments: state.supplementChatAttachments.filter((f) => f.id !== id)
+      }));
+    },
+
+    clearSupplementChat: () => {
+      get().supplementChatAttachments.forEach((f) => removeSupplementChatBlob(f.id));
+      clearSupplementChatBlobs();
+      set({ supplementChatMessages: [], supplementChatAttachments: [] });
+      get().initSupplementChatWelcome();
+    },
+
+    applySupplementUpdates: (updates) => {
+      if (!updates.length) return;
+      const now = new Date().toISOString();
+      set((state) => ({
+        specificationSections: state.specificationSections.map((s) => {
+          const hit = updates.find((u) => u.section_id === s.section_id);
+          if (!hit?.content) return s;
+          return { ...s, content: hit.content, lastUpdatedAt: now, isModified: true };
+        })
+      }));
+      syncSpecificationDerived(set, get);
+      get().saveCurrentProject();
+    },
+
+    sendSupplementMessage: async (text) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const state = get();
+      if (!state.analysis) {
+        set({ error: "먼저 발명 분석 또는 전체 자동 작성을 실행해 주세요." });
+        return;
+      }
+
+      const attachmentNames = state.supplementChatAttachments.map((f) => f.name);
+      const userMsg: SupplementChatMessage = {
+        id: createSupplementMessageId(),
+        role: "user",
+        content: trimmed,
+        at: new Date().toISOString(),
+        attachmentNames: attachmentNames.length ? attachmentNames : undefined
+      };
+
+      set({
+        supplementChatMessages: [...state.supplementChatMessages, userMsg],
+        loadingStage: "supplement_chat",
+        error: ""
+      });
+
+      try {
+        assertCanRunAi();
+        const uploadError = validateMaterialsForAnalyze(
+          state.supplementChatAttachments,
+          getSupplementChatBlob
+        );
+        if (uploadError) {
+          set({ error: uploadError, loadingStage: "" });
+          return;
+        }
+
+        const latest = get();
+        const chatForApi = latest.supplementChatMessages.filter((m) => m.role !== "system");
+        const payload = {
+          projectName: latest.currentProject.title,
+          messages: chatForApi.map((m) => ({ role: m.role, content: m.content })),
+          specContext: buildSpecContextSummary(
+            latest.specificationSections,
+            latest.claims,
+            latest.drawingPrompts,
+            latest.analysis,
+            latest.review,
+            latest.chemicalEmbodimentAnalysis
+          ),
+          reviewSummary: buildReviewSummary(latest.review),
+          options: {
+            inventionMakingEnabled: latest.options.inventionMakingEnabled,
+            chemicalInventionEnabled: latest.options.chemicalInventionEnabled
+          },
+          materials: latest.supplementChatAttachments.map((f) => ({
+            fileId: f.id,
+            name: f.name,
+            mimeType: f.mimeType,
+            extension: f.extension,
+            size: f.size,
+            materialType: f.materialType
+          }))
+        };
+
+        const formData = buildSupplementChatFormData(
+          payload,
+          trimmed,
+          latest.supplementChatAttachments
+        );
+        const response = await fetch("/api/supplement-chat", { method: "POST", body: formData });
+        if (!response.ok) {
+          throw new Error(
+            await parseApiErrorResponse(response, "보완 채팅에 실패했습니다", "sendSupplementMessage")
+          );
+        }
+        const data = (await response.json()) as SupplementChatResponsePayload;
+        const updates = (data.section_updates ?? []).filter(
+          (u) => u.section_id && typeof u.content === "string" && u.content.trim()
+        );
+        const assistantMsg: SupplementChatMessage = {
+          id: createSupplementMessageId(),
+          role: "assistant",
+          content: data.reply?.trim() || "응답을 받지 못했습니다.",
+          at: new Date().toISOString(),
+          sectionUpdates: updates.length ? updates : undefined
+        };
+
+        latest.supplementChatAttachments.forEach((f) => removeSupplementChatBlob(f.id));
+        set({
+          supplementChatMessages: [...get().supplementChatMessages, assistantMsg],
+          supplementChatAttachments: []
+        });
+        get().saveCurrentProject();
+      } catch (err) {
+        set({
+          error: formatFetchError(err, "보완 채팅 중 오류가 발생했습니다.", "sendSupplementMessage")
+        });
+      } finally {
+        set({ loadingStage: "" });
+      }
     },
 
     saveCurrentProject: () => {
@@ -769,13 +1090,15 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
               };
             })
           : state.uploadedFiles;
+        const analysis = normalizeInventionAnalysis(data.invention_analysis);
         const workflow = createEmptyWorkflowState();
         workflow.workflowStep = "analyzed";
         set({
-          analysis: normalizeInventionAnalysis(data.invention_analysis),
+          analysis,
           workflow,
           uploadedFiles,
           input,
+          chemicalEmbodimentAnalysis: null,
           currentProject: {
             ...state.currentProject,
             updatedAt: new Date().toISOString(),
@@ -783,12 +1106,36 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
           },
           activeTab: "analysis"
         });
+
+        syncChemicalFormulaObjectUrlsFromFiles(
+          get().uploadedFiles,
+          getFileBlob,
+          get().options.chemicalInventionEnabled
+        );
         get().saveCurrentProject();
+
+        if (isChemicalInventionEnabled(get().options.chemicalInventionEnabled)) {
+          await applyChemicalEmbodimentStage(get, set);
+          return;
+        }
       } catch (err) {
         set({ error: formatFetchError(err, "발명 분석 중 오류가 발생했습니다.", "runAnalyze") });
       } finally {
         set({ loadingStage: "" });
       }
+    },
+
+    runChemicalEmbodimentAnalyze: async () => {
+      const state = get();
+      if (!isChemicalInventionEnabled(state.options.chemicalInventionEnabled)) {
+        set({ error: "화학 발명 옵션을 먼저 활성화해 주세요." });
+        return;
+      }
+      if (!state.analysis) {
+        set({ error: "먼저 1단계 발명 분석을 실행해 주세요." });
+        return;
+      }
+      await applyChemicalEmbodimentStage(get, set);
     },
 
     runGenerateSpec: async () => {
@@ -906,7 +1253,11 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         applyFullDraftResult(set, get, result);
         set({ input, loadingStage: "refine" });
         await runPostFullDraftRefinement(set, get);
-        set({ activeTab: "spec_edit" });
+        get().supplementChatAttachments.forEach((f) => removeSupplementChatBlob(f.id));
+        clearSupplementChatBlobs();
+        set({ supplementChatMessages: [], supplementChatAttachments: [] });
+        get().initSupplementChatWelcome();
+        set({ activeTab: "supplement_chat" });
         get().saveCurrentProject();
       } catch (err) {
         set({ error: formatFetchError(err, "전체 자동 작성 중 오류가 발생했습니다.") });
