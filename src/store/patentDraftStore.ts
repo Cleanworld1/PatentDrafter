@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { defaultDraftOptions } from "@/lib/defaultDraftOptions";
 import { buildJsonWithOpenAi } from "@/lib/client/appendOpenAiFields";
 import { buildMaterialsFormData } from "@/lib/client/buildAnalyzeFormData";
+import { validateMaterialsForAnalyze } from "@/lib/client/validateMaterialsUpload";
 import { formatFetchError, parseApiErrorResponse } from "@/lib/client/parseApiError";
 import { assertCanRunAi } from "@/store/sessionApiKeyStore";
 import { clearFileBlobs, getFileBlob, removeFileBlob } from "@/lib/client/fileBlobRegistry";
@@ -731,11 +732,18 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
       set({ loadingStage: "analyze", error: "" });
       try {
         assertCanRunAi();
+        const uploadError = validateMaterialsForAnalyze(state.uploadedFiles, getFileBlob);
+        if (uploadError) {
+          set({ error: uploadError, loadingStage: "" });
+          return;
+        }
         const input = buildInventionInput(state.currentProject, state.textInputs, state.uploadedFiles, state.options);
         const formData = buildMaterialsFormData(state);
         const response = await fetch("/api/analyze", { method: "POST", body: formData });
         if (!response.ok) {
-          throw new Error(await parseApiErrorResponse(response, "발명 분석에 실패했습니다"));
+          throw new Error(
+            await parseApiErrorResponse(response, "발명 분석에 실패했습니다", "runAnalyze")
+          );
         }
         const data = (await response.json()) as {
           invention_analysis: InventionAnalysis;
@@ -777,7 +785,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         });
         get().saveCurrentProject();
       } catch (err) {
-        set({ error: formatFetchError(err, "발명 분석 중 오류가 발생했습니다.") });
+        set({ error: formatFetchError(err, "발명 분석 중 오류가 발생했습니다.", "runAnalyze") });
       } finally {
         set({ loadingStage: "" });
       }
@@ -883,6 +891,11 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
 
       try {
         assertCanRunAi();
+        const uploadError = validateMaterialsForAnalyze(state.uploadedFiles, getFileBlob);
+        if (uploadError) {
+          set({ error: uploadError, loadingStage: "" });
+          return;
+        }
         const input = buildInventionInput(state.currentProject, state.textInputs, state.uploadedFiles, state.options);
         const formData = buildMaterialsFormData(state);
         const response = await fetch("/api/full-draft", { method: "POST", body: formData });

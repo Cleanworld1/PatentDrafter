@@ -12,12 +12,15 @@ npm run dev
 
 브라우저에서 `http://localhost:3000`에 접속합니다.
 
-**접속이 안 될 때 (500 / 흰 화면):** dev가 켜진 상태에서 `npm run build`를 하면 `.next` 캐시가 깨집니다.
+**접속이 안 될 때 (500 / 흰 화면 / CSS·UI 미적용):** dev가 켜진 상태에서 `npm run build`를 하면 `.next` 캐시가 깨져 HTML만 보이거나 스타일이 빠질 수 있습니다.
 
 ```bash
 node scripts/dev-restart.mjs   # 또는 scripts\dev-restart.cmd
 node scripts/verify-localhost.mjs
+# 한 번에: npm run dev:fix
 ```
+
+브라우저는 **http://localhost:3000** 만 사용하고, 3001 등 다른 포트 탭은 닫은 뒤 **Ctrl+Shift+R**(강력 새로고침) 하세요.
 
 ## 테스트
 

@@ -7,6 +7,8 @@
     "dev:clean": "node -e \"try{require('fs').rmSync('.next',{recursive:true,force:true})}catch(e){}\" && next dev",
     "dev:restart": "node scripts/dev-restart.mjs",
     "verify:dev": "node scripts/verify-localhost.mjs",
+    "diagnose": "node scripts/diagnose-app.mjs",
+    "dev:fix": "node scripts/dev-restart.mjs && node scripts/verify-localhost.mjs",
     "build": "node scripts/verify-dev-not-running.mjs && next build",
     "start": "next start",
     "lint": "next lint",

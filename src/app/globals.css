@@ -327,6 +327,113 @@ select {
   padding-top: 12px;
 }
 
+/* 오류 진단 로그 */
+.diagnostics-card {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.diagnostics-toggle {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.diagnostics-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostics-current-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  font-size: 12px;
+}
+
+.diagnostics-current-error p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diagnostics-summary-line {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-secondary--small {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.diagnostics-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostics-log-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diagnostics-log-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  font-size: 12px;
+}
+
+.diagnostics-log-item--client {
+  border-left: 3px solid #2563eb;
+}
+
+.diagnostics-log-item--server {
+  border-left: 3px solid #dc2626;
+}
+
+.diagnostics-log-meta {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.diagnostics-log-message {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diagnostics-log-hint {
+  margin: 6px 0 0;
+  color: #047857;
+  font-size: 11px;
+}
+
 .settings-panel-header {
   margin-bottom: 4px;
 }

@@ -1,6 +1,7 @@
 import { buildOpenAiUserContentParts } from "@/lib/ai/multimodalRequestBuilder";
 import { createMultimodalLlmClientFromResolved } from "@/lib/ai/openaiClient";
 import { requireOpenAiCredentials } from "@/lib/ai/resolveOpenAiCredentials";
+import { capMultimodalPreparedInputs } from "@/lib/fileInput/capMultimodalInputs";
 import { prepareAiFileInput, type PrepareFileOptions } from "@/lib/fileInput/prepareAiFileInput";
 import type { AnalyzeMaterialsPayload, PreparedAiInput } from "@/lib/fileInput/fileInputTypes";
 import { buildAnalyzeInventionPrompt } from "@/prompts/analyzeInvention";
@@ -75,17 +76,18 @@ export async function analyzeMaterialsWithAi(
   credentials?: OpenAiCredentialInput
 ): Promise<{ analysis: InventionAnalysis; prepared: PreparedAiInput[] }> {
   const prepared = await prepareAllMaterials(files);
-  const legacyInput = buildLegacyInventionInput(payload, prepared);
-  const prompt = buildAnalyzeInventionPrompt(legacyInput, prepared);
+  const preparedForApi = await capMultimodalPreparedInputs(prepared);
+  const legacyInput = buildLegacyInventionInput(payload, preparedForApi);
+  const prompt = buildAnalyzeInventionPrompt(legacyInput, preparedForApi);
   const resolved = requireOpenAiCredentials(credentials);
   const client = createMultimodalLlmClientFromResolved(resolved);
   const parts = buildOpenAiUserContentParts(
     prompt,
     payload.projectName,
     payload.userTextInputs,
-    prepared
+    preparedForApi
   );
   const raw = await client.generateJsonFromParts(parts);
   const { data: parsed } = parseJsonWithFallback<InventionAnalysis>(raw, emptyInventionAnalysis);
-  return { analysis: normalizeInventionAnalysis(parsed), prepared };
+  return { analysis: normalizeInventionAnalysis(parsed), prepared: preparedForApi };
 }

@@ -14,6 +14,18 @@ export const maxDuration = 300;
 export async function POST(request: Request) {
   try {
     const parsed = await parseAnalyzeRequest(request);
+
+    if (parsed.kind === "materials") {
+      const expected = parsed.payload.materials?.length ?? 0;
+      if (expected > 0 && parsed.files.length < expected) {
+        return NextResponse.json(
+          {
+            error: `업로드 파일 ${expected}개 중 ${parsed.files.length}개만 전달되었습니다. 용량·개수를 줄이거나 dev 서버를 재시작한 뒤 다시 시도해 주세요.`
+          },
+          { status: 400 }
+        );
+      }
+    }
     const resolved = resolveOpenAiCredentials(parsed.credentials);
 
     if (!resolved && !isDevMockWithoutKeyAllowed()) {
