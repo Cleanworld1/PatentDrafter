@@ -41,18 +41,26 @@ describe("exportSpecificationDocx", () => {
     expect(blocks[0].paragraphs).toHaveLength(0);
   });
 
-  it("preserves line breaks from HTML br and div when section has tables", () => {
-    const content =
-      '<div class="spec-prose">실시예 1<br>조건 설명</div>\n<table><tr><td>A</td></tr></table>\n비교예 설명';
-    const blocks = parseSectionContentBlocks(content);
-    const paragraphs = blocks.filter((b) => b.type === "paragraph");
-    expect(paragraphs.length).toBeGreaterThanOrEqual(3);
-    expect(paragraphs[0].type === "paragraph" && paragraphs[0].text).toBe("실시예 1");
-    expect(paragraphs.some((b) => b.type === "paragraph" && b.text.includes("비교예"))).toBe(
-      true
-    );
-    expect(htmlFragmentToPlainText("줄1<br>줄2")).toContain("줄1");
-    expect(htmlFragmentToPlainText("줄1<br>줄2")).toMatch(/줄1[\s\S]*줄2/);
+  it("preserves line breaks from plain text and HTML br for export blocks", () => {
+    const plainBlocks = parseSectionContentBlocks("실험예 1\n비교예 1\n\n해석 문단");
+    expect(plainBlocks.filter((b) => b.type === "paragraph").map((b) => b.text)).toEqual([
+      "실험예 1",
+      "비교예 1",
+      "",
+      "해석 문단"
+    ]);
+
+    const html = '<div class="spec-prose">첫 줄<br>둘째 줄</div>';
+    expect(htmlFragmentToPlainText(html)).toContain("첫 줄");
+    expect(htmlFragmentToPlainText(html)).toMatch(/첫 줄[\s\S]*둘째 줄/);
+
+    const htmlBlocks = parseSectionContentBlocks(html);
+    const lines = htmlBlocks
+      .filter((b): b is { type: "paragraph"; text: string } => b.type === "paragraph")
+      .map((b) => b.text);
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    expect(lines[0]).toContain("첫 줄");
+    expect(lines.some((l) => l.includes("둘째 줄"))).toBe(true);
   });
 
   it("parses HTML tables into table blocks for export", () => {

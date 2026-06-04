@@ -1,4 +1,4 @@
-import { hasRenderableHtml, TABLE_BLOCK_RE } from "@/lib/specEditorHtml";
+import { hasRenderableHtml, shouldUseHtmlEditor, TABLE_BLOCK_RE } from "@/lib/specEditorHtml";
 
 export interface ParsedTable {
   caption?: string;
@@ -21,54 +21,44 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&#39;/g, "'");
 }
 
-function cellTextFromHtml(inner: string): string {
-  return decodeHtmlEntities(
-    inner
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/[ \t\f\v]+/g, " ")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim()
-  );
-}
-
-/** export용 — <br>, <p>, <div> 등을 줄바꿈으로 변환 */
+/** HTML 조각 → export용 평문 (br·블록 요소 → \\n) */
 export function htmlFragmentToPlainText(html: string): string {
   const trimmed = html.trim();
   if (!trimmed) return "";
-  if (!/<[a-z]/i.test(trimmed)) return trimmed;
 
   if (typeof DOMParser !== "undefined") {
-    const doc = new DOMParser().parseFromString(
-      `<div id="plain-root">${trimmed}</div>`,
-      "text/html"
-    );
-    const root = doc.getElementById("plain-root");
-    if (root) {
-      return (root.innerText || root.textContent || "")
-        .replace(/\u00a0/g, " ")
-        .replace(/\r\n/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
-    }
+    const wrapped = /^<[a-z]/i.test(trimmed) ? trimmed : `<div>${trimmed}</div>`;
+    const doc = new DOMParser().parseFromString(wrapped, "text/html");
+    const text = (doc.body?.innerText ?? "").replace(/\u00a0/g, " ");
+    return text.replace(/\r\n/g, "\n");
   }
 
   return decodeHtmlEntities(
     trimmed
       .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(?:p|div|li|h[1-6])>/gi, "\n")
+      .replace(/<\/p>\s*/gi, "\n")
+      .replace(/<\/div>\s*/gi, "\n")
       .replace(/<[^>]+>/g, "")
-      .replace(/[ \t\f\v]+/g, " ")
-      .replace(/\n{3,}/g, "\n\n")
-  ).trim();
+  )
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n");
 }
 
-function plainTextToParagraphBlocks(text: string): SectionContentBlock[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((lineText) => ({ type: "paragraph" as const, text: lineText }));
+function pushParagraphLines(blocks: SectionContentBlock[], plain: string): void {
+  const normalized = plain.replace(/\r\n/g, "\n");
+  for (const line of normalized.split("\n")) {
+    blocks.push({ type: "paragraph", text: line });
+  }
+}
+
+function cellTextFromHtml(inner: string): string {
+  return decodeHtmlEntities(
+    inner
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 export function parseHtmlTable(html: string): ParsedTable {
@@ -125,10 +115,16 @@ export function parseSectionContentBlocks(content: string): SectionContentBlock[
   const trimmed = content.trim();
   if (!trimmed) return [];
 
-  if (!hasRenderableHtml(trimmed)) {
-    const plain =
-      /<(?:br|p|div)\b/i.test(trimmed) ? htmlFragmentToPlainText(trimmed) : trimmed;
-    return plainTextToParagraphBlocks(plain);
+  if (!hasRenderableHtml(trimmed) && !shouldUseHtmlEditor(trimmed)) {
+    const blocks: SectionContentBlock[] = [];
+    pushParagraphLines(blocks, trimmed);
+    return blocks;
+  }
+
+  if (!hasRenderableHtml(trimmed) && shouldUseHtmlEditor(trimmed)) {
+    const blocks: SectionContentBlock[] = [];
+    pushParagraphLines(blocks, htmlFragmentToPlainText(trimmed));
+    return blocks;
   }
 
   const parts = trimmed.split(TABLE_BLOCK_RE).filter((p) => p.length > 0);
@@ -144,7 +140,8 @@ export function parseSectionContentBlocks(content: string): SectionContentBlock[
       }
       continue;
     }
-    blocks.push(...plainTextToParagraphBlocks(htmlFragmentToPlainText(piece)));
+    const plain = /<[a-z]/i.test(piece) ? htmlFragmentToPlainText(piece) : piece;
+    pushParagraphLines(blocks, plain);
   }
 
   return blocks;

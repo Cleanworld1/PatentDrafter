@@ -37,22 +37,26 @@ type DocxParagraph = import("docx").Paragraph;
 type DocxTable = import("docx").Table;
 type DocxTextRun = import("docx").TextRun;
 
-function textToDocxRuns(
+/** 단락 문자열 내 \\n → Word 줄바꿈(break) */
+function paragraphTextToDocxRuns(
   text: string,
-  TextRun: typeof import("docx").TextRun,
-  options?: { bold?: boolean }
+  TextRun: typeof import("docx").TextRun
 ): DocxTextRun[] {
-  const bold = options?.bold ?? false;
-  const lines = text.split(/\r?\n/).map((line) => line.trim());
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
   const runs: DocxTextRun[] = [];
-  for (const line of lines) {
-    if (!line) continue;
-    if (runs.length > 0) {
+
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) {
       runs.push(new TextRun({ break: 1 }));
     }
-    runs.push(new TextRun({ text: line, bold }));
+    runs.push(new TextRun({ text: lines[i] ?? "" }));
   }
-  return runs.length > 0 ? runs : [new TextRun({ text: text.trim(), bold })];
+
+  if (runs.length === 0) {
+    runs.push(new TextRun({ text: "" }));
+  }
+
+  return runs;
 }
 
 function buildDocxTable(
@@ -74,7 +78,12 @@ function buildDocxTable(
             new TableCell({
               children: [
                 new Paragraph({
-                  children: textToDocxRuns(cell, TextRun, { bold: isHeader })
+                  children: [
+                    new TextRun({
+                      text: cell,
+                      bold: isHeader
+                    })
+                  ]
                 })
               ]
             })
@@ -99,7 +108,7 @@ function blocksToDocxChildren(
     if (block.type === "paragraph") {
       children.push(
         new Paragraph({
-          children: textToDocxRuns(block.text, TextRun),
+          children: paragraphTextToDocxRuns(block.text, TextRun),
           spacing: { after: 120 }
         })
       );

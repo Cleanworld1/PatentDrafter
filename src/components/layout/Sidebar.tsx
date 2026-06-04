@@ -2,11 +2,9 @@
 
 import { HistoryList } from "@/components/history/HistoryList";
 import { NewDraftButton } from "@/components/history/NewDraftButton";
-import { useMobileShellStore } from "@/store/mobileShellStore";
 import { useSessionApiKeyStore } from "@/store/sessionApiKeyStore";
 
 export function Sidebar() {
-  const sidebarOpen = useMobileShellStore((s) => s.sidebarOpen);
   const serverFallbackAvailable = useSessionApiKeyStore((s) => s.serverFallbackAvailable);
   const devMockAllowed = useSessionApiKeyStore((s) => s.devMockAllowed);
   const configLoaded = useSessionApiKeyStore((s) => s.configLoaded);
@@ -23,7 +21,7 @@ export function Sidebar() {
           : "OpenAI · 미설정";
 
   return (
-    <aside className={`sidebar${sidebarOpen ? " is-open" : ""}`}>
+    <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">Patent Draft AI</div>
         <p className="sidebar-subtitle">특허명세서 자동작성</p>
