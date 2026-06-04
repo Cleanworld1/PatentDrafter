@@ -9,19 +9,19 @@ import { GeminiDrawingSettings } from "@/components/settings/GeminiDrawingSettin
 import { OpenAiModelSelect } from "@/components/settings/OpenAiModelSelect";
 
 export function RightSettingsPanel() {
-  const closeSettings = useMobileShellStore((s) => s.closeSettings);
+  const settingsOpen = useMobileShellStore((s) => s.settingsOpen);
+  const setSettingsOpen = useMobileShellStore((s) => s.setSettingsOpen);
 
   return (
-    <aside className="settings-panel" aria-label="설정 및 업로드">
+    <aside className={`settings-panel${settingsOpen ? " is-open" : ""}`}>
       <div className="settings-panel-mobile-header">
-        <h2 className="settings-panel-mobile-title">설정 · 업로드</h2>
+        <h3 className="settings-panel-mobile-title">설정 · 업로드 · 생성</h3>
         <button
           type="button"
-          className="mobile-drawer-close"
-          onClick={closeSettings}
-          aria-label="설정 패널 닫기"
+          className="settings-panel-mobile-close"
+          onClick={() => setSettingsOpen(false)}
         >
-          ✕
+          닫기
         </button>
       </div>
       <OpenAiModelSelect />

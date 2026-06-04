@@ -6,34 +6,13 @@ import {
   requireOpenAiCredentials,
   resolveOpenAiCredentials
 } from "@/lib/ai/resolveOpenAiCredentials";
-import { getAnalyzeOpenAiTimeoutMs } from "@/lib/ai/analyzeTimeout";
-import { runWithServerlessTimeout } from "@/lib/ai/fetchWithTimeout";
 import { apiErrorResponse } from "@/lib/api/apiRouteErrors";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-const MAX_BODY_BYTES = 4.5 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
-    const contentLength = request.headers.get("content-length");
-    if (contentLength) {
-      const bytes = Number(contentLength);
-      if (Number.isFinite(bytes) && bytes > MAX_BODY_BYTES) {
-        return NextResponse.json(
-          {
-            error:
-              "업로드 용량이 Vercel 서버 한도(약 4.5MB)를 초과했습니다. 파일을 줄이거나 텍스트만 입력해 주세요.",
-            code: "PAYLOAD_TOO_LARGE"
-          },
-          { status: 413 }
-        );
-      }
-    }
-
-    return await runWithServerlessTimeout("발명 분석", getAnalyzeOpenAiTimeoutMs(), async () => {
     const parsed = await parseAnalyzeRequest(request);
     const resolved = resolveOpenAiCredentials(parsed.credentials);
     const useDevMock = !resolved && isDevMockWithoutKeyAllowed();
@@ -92,7 +71,6 @@ export async function POST(request: Request) {
 
     const invention_analysis = await analyzeInvention(parsed.input, parsed.credentials);
     return NextResponse.json({ invention_analysis });
-    });
   } catch (error) {
     return apiErrorResponse(error, "분석 API 처리 중 오류가 발생했습니다.");
   }

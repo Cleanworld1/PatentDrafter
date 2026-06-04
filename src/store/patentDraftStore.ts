@@ -2,12 +2,7 @@ import { create } from "zustand";
 import { defaultDraftOptions } from "@/lib/defaultDraftOptions";
 import { buildJsonWithOpenAi } from "@/lib/client/appendOpenAiFields";
 import { buildMaterialsFormData } from "@/lib/client/buildAnalyzeFormData";
-import {
-  formatFetchError,
-  formatUploadTooLargeError,
-  parseApiErrorResponse,
-  VERCEL_MAX_UPLOAD_BYTES
-} from "@/lib/client/parseApiError";
+import { formatFetchError, parseApiErrorResponse } from "@/lib/client/parseApiError";
 import { assertCanRunAi } from "@/store/sessionApiKeyStore";
 import { clearFileBlobs, getFileBlob, removeFileBlob } from "@/lib/client/fileBlobRegistry";
 import { materialTypeToSourceType } from "@/lib/fileInput/fileInputTypes";
@@ -736,14 +731,6 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
       set({ loadingStage: "analyze", error: "" });
       try {
         assertCanRunAi();
-        let uploadBytes = 0;
-        for (const f of state.uploadedFiles) {
-          const blob = getFileBlob(f.id);
-          if (blob) uploadBytes += blob.size;
-        }
-        if (uploadBytes > VERCEL_MAX_UPLOAD_BYTES) {
-          throw new Error(formatUploadTooLargeError(uploadBytes));
-        }
         const input = buildInventionInput(state.currentProject, state.textInputs, state.uploadedFiles, state.options);
         const formData = buildMaterialsFormData(state);
         const response = await fetch("/api/analyze", { method: "POST", body: formData });

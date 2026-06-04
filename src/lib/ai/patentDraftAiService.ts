@@ -1,5 +1,4 @@
 import { buildOpenAiUserContentParts } from "@/lib/ai/multimodalRequestBuilder";
-import { getAnalyzeOpenAiTimeoutMs } from "@/lib/ai/analyzeTimeout";
 import { createMultimodalLlmClientFromResolved } from "@/lib/ai/openaiClient";
 import { requireOpenAiCredentials } from "@/lib/ai/resolveOpenAiCredentials";
 import { prepareAiFileInput, type PrepareFileOptions } from "@/lib/fileInput/prepareAiFileInput";
@@ -78,9 +77,7 @@ export async function analyzeMaterialsWithAi(
   const legacyInput = buildLegacyInventionInput(payload, prepared);
   const prompt = buildAnalyzeInventionPrompt(legacyInput, prepared);
   const resolved = requireOpenAiCredentials(credentials);
-  const client = createMultimodalLlmClientFromResolved(resolved, {
-    timeoutMs: getAnalyzeOpenAiTimeoutMs()
-  });
+  const client = createMultimodalLlmClientFromResolved(resolved);
   const parts = buildOpenAiUserContentParts(
     prompt,
     payload.projectName,

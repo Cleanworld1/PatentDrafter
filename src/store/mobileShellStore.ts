@@ -3,29 +3,33 @@ import { create } from "zustand";
 interface MobileShellState {
   sidebarOpen: boolean;
   settingsOpen: boolean;
-  openSidebar: () => void;
-  closeSidebar: () => void;
+  setSidebarOpen: (open: boolean) => void;
+  setSettingsOpen: (open: boolean) => void;
   toggleSidebar: () => void;
-  openSettings: () => void;
-  closeSettings: () => void;
   toggleSettings: () => void;
-  closeAllPanels: () => void;
+  closePanels: () => void;
 }
 
 export const useMobileShellStore = create<MobileShellState>((set, get) => ({
   sidebarOpen: false,
   settingsOpen: false,
-  openSidebar: () => set({ sidebarOpen: true, settingsOpen: false }),
-  closeSidebar: () => set({ sidebarOpen: false }),
+  setSidebarOpen: (open) =>
+    set((state) => ({
+      sidebarOpen: open,
+      settingsOpen: open ? false : state.settingsOpen
+    })),
+  setSettingsOpen: (open) =>
+    set((state) => ({
+      settingsOpen: open,
+      sidebarOpen: open ? false : state.sidebarOpen
+    })),
   toggleSidebar: () => {
-    const open = !get().sidebarOpen;
-    set({ sidebarOpen: open, settingsOpen: open ? false : get().settingsOpen });
+    const next = !get().sidebarOpen;
+    get().setSidebarOpen(next);
   },
-  openSettings: () => set({ settingsOpen: true, sidebarOpen: false }),
-  closeSettings: () => set({ settingsOpen: false }),
   toggleSettings: () => {
-    const open = !get().settingsOpen;
-    set({ settingsOpen: open, sidebarOpen: open ? false : get().sidebarOpen });
+    const next = !get().settingsOpen;
+    get().setSettingsOpen(next);
   },
-  closeAllPanels: () => set({ sidebarOpen: false, settingsOpen: false })
+  closePanels: () => set({ sidebarOpen: false, settingsOpen: false })
 }));

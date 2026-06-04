@@ -1,6 +1,5 @@
 "use client";
 
-import { getOpenAiKeySetupMessage } from "@/lib/openAiSetupMessage";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 import { useSessionApiKeyStore } from "@/store/sessionApiKeyStore";
 
@@ -26,7 +25,10 @@ export function GenerationActions() {
         <span className="workflow-step-current">현재 단계: {workflowStepLabel}</span>
       </p>
       {!canRunAi && (
-        <p className="workflow-key-warning">{getOpenAiKeySetupMessage()}</p>
+        <p className="workflow-key-warning">
+          서버에 OpenAI API Key가 없습니다. 프로젝트 루트 <code>.env.local</code>의{" "}
+          <code>OPENAI_API_KEY</code>를 설정한 뒤 dev 서버를 재시작하세요.
+        </p>
       )}
       {devMockAllowed && !serverFallbackAvailable && (
         <p className="workflow-key-hint">개발 모드: Key 없이 mock으로 실행됩니다.</p>

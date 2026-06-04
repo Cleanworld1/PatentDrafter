@@ -7,13 +7,13 @@ import { useMobileShellStore } from "@/store/mobileShellStore";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 
 export function HistoryList() {
+  const closePanels = useMobileShellStore((s) => s.closePanels);
   const [query, setQuery] = useState("");
   const [mounted, setMounted] = useState(false);
   const currentId = usePatentDraftStore((s) => s.currentProject.id);
   const historyVersion = usePatentDraftStore((s) => s.historyVersion);
   const loadProject = usePatentDraftStore((s) => s.loadProject);
   const deleteHistoryProject = usePatentDraftStore((s) => s.deleteHistoryProject);
-  const closeSidebar = useMobileShellStore((s) => s.closeSidebar);
 
   useEffect(() => {
     setMounted(true);
@@ -45,7 +45,7 @@ export function HistoryList() {
               isActive={entry.id === currentId}
               onSelect={() => {
                 loadProject(entry.snapshot);
-                closeSidebar();
+                closePanels();
               }}
               onDelete={() => deleteHistoryProject(entry.id)}
             />

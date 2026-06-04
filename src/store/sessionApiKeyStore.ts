@@ -1,4 +1,3 @@
-import { getOpenAiKeySetupMessage } from "@/lib/openAiSetupMessage";
 import { create } from "zustand";
 
 const DEFAULT_MODEL = "gpt-4o";
@@ -12,9 +11,6 @@ interface OpenAiSessionState {
   suggestedModel: string;
   envProjectConfigured: boolean;
   envOrganizationConfigured: boolean;
-  hostedOnVercel: boolean;
-  needsProTimeoutEnv: boolean;
-  analyzeTimeoutMs: number | null;
   configLoaded: boolean;
   configError: string | null;
 
@@ -27,9 +23,6 @@ interface OpenAiSessionState {
     suggestedModel: string;
     envProjectConfigured?: boolean;
     envOrganizationConfigured?: boolean;
-    hostedOnVercel?: boolean;
-    needsProTimeoutEnv?: boolean;
-    analyzeTimeoutMs?: number;
   }) => void;
   setConfigLoadState: (state: { configLoaded: boolean; configError: string | null }) => void;
   getModelForRequest: () => string;
@@ -45,9 +38,6 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
   suggestedModel: DEFAULT_MODEL,
   envProjectConfigured: false,
   envOrganizationConfigured: false,
-  hostedOnVercel: false,
-  needsProTimeoutEnv: false,
-  analyzeTimeoutMs: null,
   configLoaded: false,
   configError: null,
 
@@ -62,10 +52,7 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
     devMockAllowed,
     suggestedModel,
     envProjectConfigured,
-    envOrganizationConfigured,
-    hostedOnVercel,
-    needsProTimeoutEnv,
-    analyzeTimeoutMs
+    envOrganizationConfigured
   }) =>
     set({
       serverFallbackAvailable,
@@ -73,12 +60,6 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
       suggestedModel,
       envProjectConfigured: Boolean(envProjectConfigured),
       envOrganizationConfigured: Boolean(envOrganizationConfigured),
-      hostedOnVercel: Boolean(hostedOnVercel),
-      needsProTimeoutEnv: Boolean(needsProTimeoutEnv),
-      analyzeTimeoutMs:
-        typeof analyzeTimeoutMs === "number" && Number.isFinite(analyzeTimeoutMs)
-          ? analyzeTimeoutMs
-          : null,
       selectedModel: get().selectedModel === DEFAULT_MODEL ? suggestedModel : get().selectedModel
     }),
 
@@ -104,6 +85,7 @@ export function getModelForRequest(): string {
 
 export function assertCanRunAi(): void {
   if (useSessionApiKeyStore.getState().canRunAi()) return;
-  const host = typeof window !== "undefined" ? window.location.hostname : undefined;
-  throw new Error(getOpenAiKeySetupMessage(host));
+  throw new Error(
+    "서버에 OpenAI API Key가 설정되지 않았습니다. .env.local의 OPENAI_API_KEY를 확인해 주세요."
+  );
 }
