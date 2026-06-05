@@ -56,10 +56,11 @@ export function formatCurrentDrawingContextBlock(ctx: CurrentDrawingContext): st
     return `- ${parts.join(" | ")}`;
   });
 
-  return `[현재 명세서 도면 구성 — 최우선 기준]
+  return `[현재 명세서 도면 구성 — 참고]
 - 현재 도면 수: ${ctx.drawingCount}개 (도 ${ctx.figureNumbers.join(", 도 ")})
 - 발명 분석표의 drawing_candidates 개수와 다르면, 반드시 아래 현재 도면 수·번호를 따른다.
-- 도면의 간단한 설명·구체적인 내용 작성 시 위 ${ctx.drawingCount}개 도면을 빠짐없이 모두 다룬다.
+- 【도면의 간단한 설명】·【구체적인 내용】 작성 시에만 위 ${ctx.drawingCount}개 도면을 빠짐없이 모두 다룬다.
+- 【도 N】 도면 프롬프트 작성 시에는 해당 도 번호 한 장만 출력한다(다른 도면 프롬프트 병기 금지).
 
 [도면별 정보]
 ${lines.join("\n")}`;

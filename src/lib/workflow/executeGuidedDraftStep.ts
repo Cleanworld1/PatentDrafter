@@ -1,17 +1,17 @@
 import { buildJsonWithOpenAi } from "@/lib/client/appendOpenAiFields";
+import { consumePlainTextSseStream } from "@/lib/client/consumePlainTextStream";
 import { buildMaterialsFormData } from "@/lib/client/buildAnalyzeFormData";
 import { parseApiErrorResponse } from "@/lib/client/parseApiError";
 import { assembleSpecificationFromWorkflow } from "@/lib/workflow/assembleSpecification";
 import { isGuidedDraftAborted } from "@/lib/workflow/guidedDraftAbort";
 import type { GuidedDraftSession, GuidedDraftStep } from "@/lib/workflow/guidedDraftPlan";
 import {
-  getDefaultElaborateInstruction,
-  getDefaultRewriteInstruction
-} from "@/lib/workflow/postFullDraftRefinement";
+  buildLiveClaimsFromSections,
+  resolveSectionRewriteInstruction
+} from "@/lib/regenerateSectionContext";
 import {
-  buildDetailedFigureAppendInstruction,
   buildDetailedIntroInstruction,
-  buildDetailedOutroInstruction
+  buildDetailedOutroOnlyInstruction
 } from "@/prompts/guidedDetailedDescription";
 import { buildCurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
 import { normalizeDrawingPrompts, normalizeInventionAnalysis, normalizeChemicalEmbodimentAnalysis } from "@/lib/jsonSchema";
@@ -79,46 +79,112 @@ async function postJson<T>(url: string, payload: Record<string, unknown>): Promi
   return (await response.json()) as T;
 }
 
+function setSectionContent(set: SetState, sectionId: string, content: string): void {
+  const now = new Date().toISOString();
+  set((s) => ({
+    specificationSections: s.specificationSections.map((sec) =>
+      sec.section_id === sectionId ? { ...sec, content, lastUpdatedAt: now } : sec
+    )
+  }));
+}
+
+/** 기존 본문을 유지한 채 뒤에 이어 붙임 */
+function appendSectionContent(set: SetState, get: GetState, sectionId: string, addition: string): void {
+  const trimmed = addition.trim();
+  if (!trimmed) return;
+  const current =
+    get().specificationSections.find((s) => s.section_id === sectionId)?.content?.trimEnd() ?? "";
+  const merged = current ? `${current}\n${trimmed}` : trimmed;
+  setSectionContent(set, sectionId, merged);
+}
+
+function buildRegenerateSectionPayload(get: GetState, sectionId: string, userInstruction: string) {
+  const state = get();
+  if (!state.analysis) throw new Error("발명 분석이 없습니다.");
+  const current = state.specificationSections.find((s) => s.section_id === sectionId);
+  if (!current) throw new Error(`섹션 ${sectionId} 없음`);
+
+  const liveClaims = buildLiveClaimsFromSections(state.specificationSections, state.claims);
+
+  return {
+    sectionId,
+    sectionType: sectionIdToType(sectionId),
+    currentContent: current.content,
+    analysis: state.analysis,
+    relatedClaims: liveClaims,
+    specificationSections: state.specificationSections.map((s) => ({
+      section_id: s.section_id,
+      content: s.content
+    })),
+    userInstruction,
+    drawingContext: buildCurrentDrawingContext(state.specificationSections, state.drawingPrompts),
+    inventionMakingEnabled: state.options.inventionMakingEnabled,
+    chemicalInventionEnabled: state.options.chemicalInventionEnabled,
+    chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
+    chemicalFormulaCatalog: isChemicalInventionEnabled(state.options.chemicalInventionEnabled)
+      ? buildChemicalFormulaCatalog(state.uploadedFiles)
+      : []
+  };
+}
+
+async function regenerateSectionContent(
+  get: GetState,
+  set: SetState,
+  sectionId: string,
+  userInstruction: string,
+  options?: { contentPrefix?: string }
+): Promise<string> {
+  const prefix = options?.contentPrefix?.trimEnd() ?? "";
+  const response = await fetch("/api/regenerate-section/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: buildJsonWithOpenAi(buildRegenerateSectionPayload(get, sectionId, userInstruction))
+  });
+
+  return consumePlainTextSseStream(response, (streamed) => {
+    const display = prefix ? `${prefix}\n${streamed}` : streamed;
+    setSectionContent(set, sectionId, display);
+  });
+}
+
 async function regenerateSection(
   get: GetState,
   set: SetState,
   sectionId: string,
   userInstruction: string
 ): Promise<void> {
-  const state = get();
-  if (!state.analysis) throw new Error("발명 분석이 없습니다.");
-  const current = state.specificationSections.find((s) => s.section_id === sectionId);
-  if (!current) throw new Error(`섹션 ${sectionId} 없음`);
+  await regenerateSectionContent(get, set, sectionId, userInstruction);
+}
 
-  const response = await fetch("/api/regenerate-section", {
+async function streamFigureDescription(
+  get: GetState,
+  set: SetState,
+  sectionId: string,
+  figureNumber: number,
+  contentPrefix: string
+): Promise<string> {
+  const state = get();
+  const drawingSection = state.specificationSections.find((s) => s.section_id === `drawing_${figureNumber}`);
+  const drawingPrompt = state.drawingPrompts.find((d) => d.figure_number === figureNumber);
+  const prefix = contentPrefix.trimEnd();
+
+  const response = await fetch("/api/generate-figure-description/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: buildJsonWithOpenAi({
-      sectionId,
-      sectionType: sectionIdToType(sectionId),
-      currentContent: current.content,
+      figureNumber,
+      drawingMaterial: drawingSection?.content ?? "",
       analysis: state.analysis,
-      relatedClaims: state.claims,
-      userInstruction,
-      drawingContext: buildCurrentDrawingContext(state.specificationSections, state.drawingPrompts),
-      inventionMakingEnabled: state.options.inventionMakingEnabled,
-      chemicalInventionEnabled: state.options.chemicalInventionEnabled,
-      chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
-      chemicalFormulaCatalog: isChemicalInventionEnabled(state.options.chemicalInventionEnabled)
-        ? buildChemicalFormulaCatalog(state.uploadedFiles)
-        : []
+      relatedClaims: buildLiveClaimsFromSections(state.specificationSections, state.claims),
+      priorFigureDescriptions: state.guidedDraft?.figureDescriptions ?? [],
+      drawingPrompt
     })
   });
-  if (!response.ok) {
-    throw new Error(await parseApiErrorResponse(response, "섹션 작성 실패"));
-  }
-  const data = (await response.json()) as { content: string };
-  const now = new Date().toISOString();
-  set((s) => ({
-    specificationSections: s.specificationSections.map((sec) =>
-      sec.section_id === sectionId ? { ...sec, content: data.content, lastUpdatedAt: now } : sec
-    )
-  }));
+
+  return consumePlainTextSseStream(response, (streamed) => {
+    const display = prefix ? `${prefix}\n${streamed}` : streamed;
+    setSectionContent(set, sectionId, display);
+  });
 }
 
 function applyBootstrapToState(
@@ -282,11 +348,19 @@ export async function executeGuidedDraftStep(
         break;
       case "refine_section": {
         if (!step.sectionId || !step.mode) break;
-        const instruction =
-          step.mode === "rewrite"
-            ? getDefaultRewriteInstruction(step.sectionId)
-            : getDefaultElaborateInstruction(step.sectionId);
+        const state = get();
+        if (!state.analysis) break;
+        const instruction = resolveSectionRewriteInstruction(
+          step.sectionId,
+          { ...state, analysis: state.analysis },
+          step.mode
+        );
         await regenerateSection(get, set, step.sectionId, instruction);
+        if (step.sectionId.startsWith("claim_")) {
+          set((s) => ({
+            claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)
+          }));
+        }
         set({ activeTab: "spec_edit" });
         break;
       }
@@ -309,38 +383,15 @@ export async function executeGuidedDraftStep(
       }
       case "detailed_figure": {
         const n = step.figureNumber!;
-        const state = get();
-        const drawingSection = state.specificationSections.find((s) => s.section_id === `drawing_${n}`);
-        const drawingPrompt = state.drawingPrompts.find((d) => d.figure_number === n);
-        const figRes = await fetch("/api/generate-figure-description", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: buildJsonWithOpenAi({
-            figureNumber: n,
-            drawingMaterial: drawingSection?.content ?? "",
-            analysis: state.analysis,
-            relatedClaims: state.claims,
-            priorFigureDescriptions: state.guidedDraft?.figureDescriptions ?? [],
-            drawingPrompt
-          })
-        });
-        if (!figRes.ok) {
-          throw new Error(await parseApiErrorResponse(figRes, `도 ${n} 설명 생성 실패`));
-        }
-        const figData = (await figRes.json()) as { content: string };
-        const current =
-          get().specificationSections.find((s) => s.section_id === "detailed_description")?.content ?? "";
-        await regenerateSection(
-          get,
-          set,
-          "detailed_description",
-          buildDetailedFigureAppendInstruction(n, figData.content, current)
-        );
+        const prefix =
+          get().specificationSections.find((s) => s.section_id === "detailed_description")?.content?.trimEnd() ??
+          "";
+        const figText = await streamFigureDescription(get, set, "detailed_description", n, prefix);
         set((s) => ({
           guidedDraft: s.guidedDraft
             ? {
                 ...s.guidedDraft,
-                figureDescriptions: [...s.guidedDraft.figureDescriptions, figData.content]
+                figureDescriptions: [...s.guidedDraft.figureDescriptions, figText]
               }
             : null
         }));
@@ -349,13 +400,15 @@ export async function executeGuidedDraftStep(
       }
       case "detailed_outro": {
         const state = get();
-        const current =
-          state.specificationSections.find((s) => s.section_id === "detailed_description")?.content ?? "";
-        await regenerateSection(
+        const prefix =
+          state.specificationSections.find((s) => s.section_id === "detailed_description")?.content?.trimEnd() ??
+          "";
+        await regenerateSectionContent(
           get,
           set,
           "detailed_description",
-          buildDetailedOutroInstruction(current, state.analysis!)
+          buildDetailedOutroOnlyInstruction(state.analysis!),
+          { contentPrefix: prefix }
         );
         set({ activeTab: "spec_edit" });
         break;

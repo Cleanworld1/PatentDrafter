@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server";
-import { regenerateSpecificationSection } from "@/lib/sectionRegenerateService";
 import { parseOpenAiFromJsonBody } from "@/lib/api/parseOpenAiCredentials";
-import { requireOpenAiCredentials } from "@/lib/ai/resolveOpenAiCredentials";
 import { apiErrorResponse } from "@/lib/api/apiRouteErrors";
 import type { CurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
+import { createSseTextResponse } from "@/lib/server/sseTextStream";
+import { regenerateSpecificationSectionStreaming } from "@/lib/sectionRegenerateService";
 import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 import type { ChemicalFormulaImageRef } from "@/types/chemicalFormulaImage";
 import type { ClaimDraft, InventionAnalysis } from "@/types/patentDraft";
@@ -35,32 +34,32 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RegenerateSectionBody;
     const credentials = parseOpenAiFromJsonBody(body as RegenerateSectionBody & Record<string, unknown>);
-    requireOpenAiCredentials(credentials);
 
     const sectionType = body.sectionType ?? sectionIdToType(body.sectionId);
     const sectionTitle = body.sectionTitle ?? sectionIdToTitle(body.sectionId);
 
-    const content = await regenerateSpecificationSection(
-      {
-        sectionType,
-        sectionTitle,
-        sectionId: body.sectionId,
-        currentContent: body.currentContent,
-        analysis: body.analysis,
-        relatedClaims: body.relatedClaims,
-        specificationSections: body.specificationSections,
-        userInstruction: body.userInstruction,
-        drawingContext: body.drawingContext,
-        inventionMakingEnabled: body.inventionMakingEnabled,
-        chemicalInventionEnabled: body.chemicalInventionEnabled,
-        chemicalEmbodimentAnalysis: body.chemicalEmbodimentAnalysis ?? null,
-        chemicalFormulaCatalog: body.chemicalFormulaCatalog ?? []
-      },
-      credentials
+    return createSseTextResponse((emit) =>
+      regenerateSpecificationSectionStreaming(
+        {
+          sectionType,
+          sectionTitle,
+          sectionId: body.sectionId,
+          currentContent: body.currentContent,
+          analysis: body.analysis,
+          relatedClaims: body.relatedClaims,
+          specificationSections: body.specificationSections,
+          userInstruction: body.userInstruction,
+          drawingContext: body.drawingContext,
+          inventionMakingEnabled: body.inventionMakingEnabled,
+          chemicalInventionEnabled: body.chemicalInventionEnabled,
+          chemicalEmbodimentAnalysis: body.chemicalEmbodimentAnalysis ?? null,
+          chemicalFormulaCatalog: body.chemicalFormulaCatalog ?? []
+        },
+        credentials,
+        emit
+      )
     );
-
-    return NextResponse.json({ content, sectionId: body.sectionId, sectionType });
   } catch (error) {
-    return apiErrorResponse(error, "섹션 재작성 중 오류가 발생했습니다.");
+    return apiErrorResponse(error, "섹션 스트리밍 재작성 중 오류가 발생했습니다.");
   }
 }

@@ -20,6 +20,12 @@ import {
   getDrawingCountMatchRule,
   type CurrentDrawingContext
 } from "@/lib/drawingContextForRegenerate";
+import {
+  formatClaimRegenerateContext,
+  formatSingleDrawingContextBlock,
+  parseClaimSectionNumber,
+  parseDrawingSectionNumber
+} from "@/lib/regenerateSectionContext";
 import { getSectionOutputNoHeadingRule } from "@/lib/sectionOutputSanitizer";
 import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 import type { ClaimDraft, InventionAnalysis } from "@/types/patentDraft";
@@ -28,6 +34,7 @@ import type { SpecificationSectionType } from "@/types/specificationSection";
 export interface RegenerateSectionPromptInput {
   sectionType: SpecificationSectionType;
   sectionTitle: string;
+  sectionId?: string;
   currentContent: string;
   analysis: InventionAnalysis;
   relatedClaims?: ClaimDraft[];
@@ -38,18 +45,41 @@ export interface RegenerateSectionPromptInput {
   chemicalFormulaCatalog?: ChemicalFormulaImageRef[];
   /** 명세서 편집기에 있는 현재 도면 목록·개수 */
   drawingContext?: CurrentDrawingContext;
+  /** 청구항 재작성 시 편집기 섹션 맥락 */
+  specificationSections?: Array<{ section_id: string; content: string }>;
 }
 
 export function buildRegenerateSectionPrompt(input: RegenerateSectionPromptInput): string {
-  const claimsText =
-    input.relatedClaims && input.relatedClaims.length > 0
-      ? input.relatedClaims.map((c) => `청구항 ${c.claim_number} (${c.category}): ${c.text}`).join("\n")
-      : "(없음)";
+  const claimNum =
+    input.sectionType === "claim" ? parseClaimSectionNumber(input.sectionId ?? "") : null;
+
+  const figureNum =
+    input.sectionType === "drawing_prompt"
+      ? parseDrawingSectionNumber(input.sectionId ?? "")
+      : null;
+
+  let claimsText = "(없음)";
+  if (input.sectionType === "claim" && claimNum && input.relatedClaims?.length) {
+    claimsText = formatClaimRegenerateContext(
+      claimNum,
+      input.relatedClaims,
+      input.analysis,
+      (input.specificationSections ?? []) as import("@/types/patentDraft").SpecificationSection[]
+    );
+  } else if (input.relatedClaims && input.relatedClaims.length > 0) {
+    claimsText = input.relatedClaims
+      .map((c) => `청구항 ${c.claim_number} (${c.category}): ${c.text}`)
+      .join("\n");
+  }
 
   const guideline = getSectionGuideline(input.sectionType);
-  const drawingBlock = input.drawingContext
-    ? `\n\n${formatCurrentDrawingContextBlock(input.drawingContext)}`
-    : "";
+  let drawingBlock = "";
+  if (input.drawingContext) {
+    drawingBlock =
+      figureNum != null
+        ? `\n\n${formatSingleDrawingContextBlock(input.drawingContext, figureNum)}`
+        : `\n\n${formatCurrentDrawingContextBlock(input.drawingContext)}`;
+  }
   const drawingCountRule =
     input.drawingContext &&
     (input.sectionType === "brief_description_of_drawings" ||
@@ -128,6 +158,6 @@ ${getChemicalInventionRegenerateNote(input.chemicalInventionEnabled)}`
 ${getSectionOutputNoHeadingRule(input.sectionTitle)}
 
 출력 형식: 대상 항목 본문만 평문(한국어)으로 반환하라. JSON 객체·키·중괄호·따옴표로 감싼 구조는 절대 출력하지 말라. 【…】 형식의 항목 제목·소제목은 출력하지 말라.
-${input.sectionType === "drawing_prompt" ? "도면 생성용 텍스트 프롬프트이므로 title/purpose 등 필드명 없이 읽기 쉬운 설명문만 작성하라." : ""}
+${input.sectionType === "drawing_prompt" ? `도면 생성용 텍스트 프롬프트이므로 title/purpose 등 필드명 없이 읽기 쉬운 설명문만 작성하라.${figureNum != null ? ` 오직 도 ${figureNum} 한 장에 대한 프롬프트만 출력하고, 다른 도면 번호의 문단·프롬프트를 포함하지 말라.` : ""}` : ""}
 ${input.sectionType === "claim" ? "청구항 본문만 출력하라. 목차에 이미 【청구항 N】이 있으므로 \"청구항 N.\" / \"청구항 N:\" 머리말은 쓰지 말고, 독립항은 \"…에 있어서,\"로 바로 시작하라." : ""}`;
 }

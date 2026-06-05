@@ -1657,6 +1657,46 @@ body.spec-editor-fullscreen-active .tab-content {
   font-size: 14px;
 }
 
+.spec-section-block.is-streaming {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 1px rgb(147 197 253 / 35%);
+}
+
+.spec-section-streaming {
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #f8fafc;
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+
+.spec-section-streaming-body {
+  margin: 0;
+  padding: 16px 18px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.spec-streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--primary);
+  animation: spec-streaming-blink 0.85s step-end infinite;
+}
+
+@keyframes spec-streaming-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .spec-section-editor-host {
   position: relative;
   max-width: 100%;

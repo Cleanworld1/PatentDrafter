@@ -36,6 +36,10 @@ import {
   markSectionsForDrawingChange
 } from "@/lib/claimDrawingImpact";
 import { buildCurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
+import {
+  buildLiveClaimsFromSections,
+  resolveSectionRewriteInstruction
+} from "@/lib/regenerateSectionContext";
 import { dedupeSpecificationSections } from "@/lib/dedupeSpecificationSections";
 import {
   createProjectId,
@@ -66,10 +70,7 @@ import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnaly
 import { formatFullDraftMarkdown } from "@/lib/markdownFormatter";
 import { createEmptySections, sectionsToSpecification, specificationToSections } from "@/lib/specificationSections";
 import { buildDetailedDescriptionElaborateInstruction } from "@/prompts/drawingFigureDescription";
-import {
-  buildPostFullDraftRefinementPlan,
-  resolveRefinementInstruction
-} from "@/lib/workflow/postFullDraftRefinement";
+import { buildPostFullDraftRefinementPlan } from "@/lib/workflow/postFullDraftRefinement";
 import { buildGuidedDraftPlan, type GuidedDraftSession } from "@/lib/workflow/guidedDraftPlan";
 import { resetGuidedDraftAbort, requestGuidedDraftAbort } from "@/lib/workflow/guidedDraftAbort";
 import {
@@ -502,6 +503,11 @@ async function callRegenerateSection(
   const current = state.specificationSections.find((s) => s.section_id === sectionId);
   if (!current) return;
 
+  const liveClaims = buildLiveClaimsFromSections(state.specificationSections, state.claims);
+  const resolvedInstruction =
+    userInstruction ??
+    resolveSectionRewriteInstruction(sectionId, { ...state, analysis: state.analysis }, "rewrite");
+
   const response = await fetch("/api/regenerate-section", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -510,8 +516,12 @@ async function callRegenerateSection(
       sectionType: sectionIdToType(sectionId),
       currentContent: current.content,
       analysis: state.analysis,
-      relatedClaims: state.claims,
-      userInstruction,
+      relatedClaims: liveClaims,
+      specificationSections: state.specificationSections.map((s) => ({
+        section_id: s.section_id,
+        content: s.content
+      })),
+      userInstruction: resolvedInstruction,
       drawingContext: buildCurrentDrawingContext(
         state.specificationSections,
         state.drawingPrompts
@@ -569,7 +579,10 @@ async function runPostFullDraftRefinement(
               figureNumber: n,
               drawingMaterial: drawingSection?.content ?? "",
               analysis: state.analysis,
-              relatedClaims: get().claims,
+              relatedClaims: buildLiveClaimsFromSections(
+                get().specificationSections,
+                get().claims
+              ),
               priorFigureDescriptions: [...figureDescriptions],
               drawingPrompt
             })
@@ -583,8 +596,17 @@ async function runPostFullDraftRefinement(
         const instruction = buildDetailedDescriptionElaborateInstruction(figureDescriptions);
         await callRegenerateSection(get, set, "detailed_description", instruction);
       } else {
-        const instruction = resolveRefinementInstruction(step);
+        const instruction = resolveSectionRewriteInstruction(
+          step.sectionId,
+          { ...get(), analysis: get().analysis! },
+          step.mode
+        );
         await callRegenerateSection(get, set, step.sectionId, instruction);
+        if (step.sectionId.startsWith("claim_")) {
+          set((s) => ({
+            claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)
+          }));
+        }
       }
     } finally {
       get().setSectionGenerating(step.sectionId, false);
@@ -1456,12 +1478,14 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
           ? buildReviewSupplementInstruction(
               sectionId,
               current,
-              state.claims,
+              buildLiveClaimsFromSections(state.specificationSections, state.claims),
               state.drawingPrompts
             )
-          : mode === "rewrite"
-            ? resolveRefinementInstruction({ sectionId, mode: "rewrite" })
-            : resolveRefinementInstruction({ sectionId, mode: "elaborate" }));
+          : resolveSectionRewriteInstruction(
+              sectionId,
+              { ...state, analysis: state.analysis },
+              mode === "elaborate" ? "elaborate" : "rewrite"
+            ));
 
       get().setSectionGenerating(sectionId, true);
       set({ error: "" });
@@ -1481,7 +1505,10 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
                 figureNumber: n,
                 drawingMaterial: drawingSection?.content ?? "",
                 analysis: state.analysis,
-                relatedClaims: get().claims,
+                relatedClaims: buildLiveClaimsFromSections(
+                  get().specificationSections,
+                  get().claims
+                ),
                 priorFigureDescriptions: [...figureDescriptions],
                 drawingPrompt
               })
@@ -1500,6 +1527,12 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
           );
         } else {
           await callRegenerateSection(get, set, sectionId, userInstruction);
+        }
+
+        if (sectionId.startsWith("claim_")) {
+          set((s) => ({
+            claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)
+          }));
         }
 
         syncSpecificationDerived(set, get);

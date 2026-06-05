@@ -1,4 +1,6 @@
 import { createOpenAiMultimodalClient } from "@/lib/ai/createOpenAiClient";
+import { streamMockPlainText, streamOpenAiPlainText } from "@/lib/ai/streamOpenAiPlainText";
+import { resolveOpenAiCredentials } from "@/lib/ai/resolveOpenAiCredentials";
 import { extractPlainTextFromLlm } from "@/lib/ai/extractPlainTextFromLlm";
 import {
   normalizeSpecificationLineBreaks,
@@ -17,11 +19,13 @@ import type { SpecificationSectionType } from "@/types/specificationSection";
 export interface RegenerateSectionInput {
   sectionType: SpecificationSectionType;
   sectionTitle: string;
+  sectionId?: string;
   currentContent: string;
   analysis: InventionAnalysis;
   relatedClaims?: ClaimDraft[];
   userInstruction?: string;
   drawingContext?: CurrentDrawingContext;
+  specificationSections?: Array<{ section_id: string; content: string }>;
   inventionMakingEnabled?: boolean;
   chemicalInventionEnabled?: boolean;
   chemicalEmbodimentAnalysis?: ChemicalEmbodimentAnalysis | null;
@@ -57,13 +61,7 @@ function mockSectionContent(input: RegenerateSectionInput): string {
   return map[sectionType] ?? analysis.one_line_summary;
 }
 
-export async function regenerateSpecificationSection(
-  input: RegenerateSectionInput,
-  credentials?: OpenAiCredentialInput
-): Promise<string> {
-  const prompt = buildRegenerateSectionPrompt(input);
-  const client = createOpenAiMultimodalClient(credentials);
-  const raw = await client.generatePlainText(prompt);
+function finalizeSectionOutput(input: RegenerateSectionInput, raw: string): string {
   const preferDrawingFormat = input.sectionType === "drawing_prompt";
   let text = extractPlainTextFromLlm(raw, preferDrawingFormat);
   if (input.sectionType === "claim") {
@@ -72,6 +70,38 @@ export async function regenerateSpecificationSection(
   text = stripDuplicateSectionHeading(text, input.sectionTitle);
   text = finalizeChemicalFormulaSectionContent(text, input.chemicalInventionEnabled);
   return normalizeSpecificationLineBreaks(text);
+}
+
+export async function regenerateSpecificationSection(
+  input: RegenerateSectionInput,
+  credentials?: OpenAiCredentialInput
+): Promise<string> {
+  const prompt = buildRegenerateSectionPrompt(input);
+  const client = createOpenAiMultimodalClient(credentials);
+  const raw = await client.generatePlainText(prompt);
+  return finalizeSectionOutput(input, raw);
+}
+
+export async function regenerateSpecificationSectionStreaming(
+  input: RegenerateSectionInput,
+  credentials: OpenAiCredentialInput | undefined,
+  onDelta: (accumulated: string) => void
+): Promise<string> {
+  const prompt = buildRegenerateSectionPrompt(input);
+  const resolved = resolveOpenAiCredentials(credentials);
+  const raw = resolved
+    ? await streamOpenAiPlainText(
+        resolved.apiKey,
+        resolved.model,
+        { organizationId: resolved.organizationId, projectId: resolved.projectId },
+        [{ type: "text", text: prompt }],
+        onDelta
+      )
+    : await streamMockPlainText(mockSectionContent(input), onDelta);
+
+  const finalText = finalizeSectionOutput(input, raw);
+  onDelta(finalText);
+  return finalText;
 }
 
 /** credentials 없이 mock만 필요한 경우(테스트) */
