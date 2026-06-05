@@ -2,6 +2,7 @@
 
 import { HistoryList } from "@/components/history/HistoryList";
 import { NewDraftButton } from "@/components/history/NewDraftButton";
+import { ProjectTransferPanel } from "@/components/history/ProjectTransferPanel";
 import { useSessionApiKeyStore } from "@/store/sessionApiKeyStore";
 
 export function Sidebar() {
@@ -27,6 +28,7 @@ export function Sidebar() {
         <p className="sidebar-subtitle">특허명세서 자동작성</p>
       </div>
       <NewDraftButton />
+      <ProjectTransferPanel />
       <HistoryList />
       <div className="sidebar-footer">
         <p

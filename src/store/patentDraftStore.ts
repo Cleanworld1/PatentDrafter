@@ -41,6 +41,11 @@ import {
   resolveSectionRewriteInstruction
 } from "@/lib/regenerateSectionContext";
 import { dedupeSpecificationSections } from "@/lib/dedupeSpecificationSections";
+import { downloadBlobFile, sanitizeDownloadBaseName } from "@/lib/downloadTextFile";
+import {
+  buildProjectExportZip,
+  importProjectBundleFromZip
+} from "@/lib/client/projectExportBundle";
 import {
   createProjectId,
   deleteHistoryEntry,
@@ -364,6 +369,8 @@ interface PatentDraftState {
   loadProject: (snapshot: PatentDraftSnapshot) => void;
   deleteHistoryProject: (projectId: string) => void;
   saveCurrentProject: () => void;
+  exportCurrentProject: () => Promise<void>;
+  importProjectBundle: (file: File) => Promise<void>;
   refreshHistory: () => void;
 
   runAnalyze: () => Promise<void>;
@@ -1211,6 +1218,46 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
 
     saveCurrentProject: () => {
       flushEditableThenSave(get, set);
+    },
+
+    exportCurrentProject: async () => {
+      flushEditableThenSave(get, set);
+      const state = get();
+      const snapshot = getSnapshot(state);
+      try {
+        const zipData = await buildProjectExportZip({
+          projectId: state.currentProject.id,
+          snapshot,
+          getMemoryFile: getFileBlob
+        });
+        const base = sanitizeDownloadBaseName(state.currentProject.title);
+        const blob = new Blob([new Uint8Array(zipData)], { type: "application/zip" });
+        downloadBlobFile(blob, `${base}.pdraft.zip`);
+        set({ error: "" });
+      } catch (err) {
+        set({
+          error: formatFetchError(err, "프로젝트보내기 중 오류가 발생했습니다.", "exportCurrentProject")
+        });
+      }
+    },
+
+    importProjectBundle: async (file: File) => {
+      try {
+        const data = new Uint8Array(await file.arrayBuffer());
+        const existingIds = listHistory().map((entry) => entry.id);
+        const { snapshot, renamed } = await importProjectBundleFromZip(data, existingIds);
+        saveHistoryEntry(snapshot);
+        get().loadProject(snapshot);
+        set({
+          historyVersion: get().historyVersion + 1,
+          error: "",
+          saveHint: renamed ? "가져온 프로젝트를 새 작업으로 열었습니다" : "프로젝트를 가져왔습니다"
+        });
+      } catch (err) {
+        set({
+          error: formatFetchError(err, "프로젝트 가져오기 중 오류가 발생했습니다.", "importProjectBundle")
+        });
+      }
     },
 
     refreshHistory: () => set({ historyVersion: get().historyVersion + 1 }),

@@ -5,10 +5,14 @@ export function sanitizeDownloadBaseName(title: string): string {
 
 export function downloadTextFile(content: string, fileName: string): void {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  downloadBlobFile(blob, fileName.endsWith(".txt") ? fileName : `${fileName}.txt`);
+}
+
+export function downloadBlobFile(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = fileName.endsWith(".txt") ? fileName : `${fileName}.txt`;
+  anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
 }

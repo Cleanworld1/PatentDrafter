@@ -122,6 +122,25 @@ export async function deleteAllPersistedFilesForProject(projectId: string): Prom
   }
 }
 
+export async function listPersistedFileIdsForProject(projectId: string): Promise<string[]> {
+  const prefix = `${projectId}/`;
+  const db = await openDb();
+  try {
+    const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readonly");
+      const req = tx.objectStore(STORE).getAllKeys();
+      req.onerror = () => reject(req.error ?? new Error("list keys failed"));
+      req.onsuccess = () => resolve(req.result ?? []);
+    });
+    return keys
+      .map((key) => String(key))
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length));
+  } finally {
+    db.close();
+  }
+}
+
 export async function restoreProjectFileBlobs(
   projectId: string,
   fileIds: string[]
