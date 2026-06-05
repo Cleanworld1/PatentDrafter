@@ -284,7 +284,8 @@ export type LoadingStage =
   | "full"
   | "refine"
   | "supplement_chat"
-  | "chemical_embodiment";
+  | "chemical_embodiment"
+  | "guided_step";
 
 export interface PatentDraftSnapshot {
   currentProject: ProjectRecord;

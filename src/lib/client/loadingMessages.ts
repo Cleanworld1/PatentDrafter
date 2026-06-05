@@ -47,6 +47,7 @@ export function getLoadingOverlayContent(
   return null;
 }
 
+/** 단계별 작성(guided_step)은 화면 하단 배너로 표시 — 전체 화면 오버레이 사용 안 함 */
 export function shouldShowLoadingOverlay(loadingStage: LoadingStage): boolean {
   return (
     loadingStage === "analyze" ||

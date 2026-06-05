@@ -30,6 +30,7 @@ export function WorkspaceTabs() {
   }, [activeTab, fullscreen, setFullscreen]);
   const error = usePatentDraftStore((s) => s.error);
   const loadingStage = usePatentDraftStore((s) => s.loadingStage);
+  const refiningProgress = usePatentDraftStore((s) => s.refiningProgress);
 
   const useOverlay = shouldShowLoadingOverlay(loadingStage);
   const loadingMessage = useOverlay
@@ -40,7 +41,9 @@ export function WorkspaceTabs() {
         ? "청구항과 본문 정합성을 검토 중입니다…"
         : loadingStage === "supplement_chat"
           ? "AI 보완 응답을 작성 중입니다…"
-          : "";
+          : loadingStage === "guided_step"
+            ? `${refiningProgress || "명세서"} 작성 중…`
+            : "";
 
   return (
     <div className="workspace-tabs-container">

@@ -70,6 +70,12 @@ import {
   buildPostFullDraftRefinementPlan,
   resolveRefinementInstruction
 } from "@/lib/workflow/postFullDraftRefinement";
+import { buildGuidedDraftPlan, type GuidedDraftSession } from "@/lib/workflow/guidedDraftPlan";
+import { resetGuidedDraftAbort, requestGuidedDraftAbort } from "@/lib/workflow/guidedDraftAbort";
+import {
+  advanceGuidedDraftIndex,
+  executeGuidedDraftStep
+} from "@/lib/workflow/executeGuidedDraftStep";
 import { sectionIdToTitle, sectionIdToType } from "@/types/specificationSection";
 import type {
   ClaimDraft,
@@ -340,6 +346,7 @@ interface PatentDraftState {
   supplementChatMessages: SupplementChatMessage[];
   supplementChatAttachments: UploadedFile[];
   chemicalEmbodimentAnalysis: ChemicalEmbodimentAnalysis | null;
+  guidedDraft: GuidedDraftSession | null;
 
   setProjectTitle: (title: string) => void;
   setTextInputs: (inputs: Partial<TextInputs>) => void;
@@ -363,6 +370,8 @@ interface PatentDraftState {
   runGenerateSpec: () => Promise<void>;
   runReview: () => Promise<void>;
   runFullDraft: () => Promise<void>;
+  continueGuidedDraft: () => void;
+  stopGuidedDraft: () => void;
   addClaimSection: () => void;
   addDrawingSection: () => void;
   writeDraftSection: (sectionId: string) => Promise<void>;
@@ -585,6 +594,56 @@ async function runPostFullDraftRefinement(
   syncSpecificationDerived(set, get);
 }
 
+async function runGuidedDraftStepEngine(
+  get: () => PatentDraftState,
+  set: (partial: Partial<PatentDraftState> | ((state: PatentDraftState) => Partial<PatentDraftState>)) => void
+): Promise<void> {
+  try {
+    await executeGuidedDraftStep(
+      get as () => import("@/lib/workflow/executeGuidedDraftStep").GuidedDraftStoreSlice,
+      set as import("@/lib/workflow/executeGuidedDraftStep").SetState,
+      {
+      buildMaterialsFormData: () => buildMaterialsFormData(get()),
+      buildChemicalFormData: () => {
+        const state = get();
+        if (!state.analysis) throw new Error("발명 분석이 없습니다.");
+        return buildChemicalEmbodimentFormData(state, state.analysis);
+      },
+      setSectionGenerating: (sectionId, isGenerating) => get().setSectionGenerating(sectionId, isGenerating),
+      onComplete: () => finishGuidedDraft(get, set)
+    });
+  } catch (err) {
+    get().specificationSections.forEach((s) => get().setSectionGenerating(s.section_id, false));
+    set((state) => ({
+      error: formatFetchError(err, "단계별 작성 중 오류가 발생했습니다."),
+      loadingStage: "",
+      refiningProgress: "",
+      guidedDraft: state.guidedDraft
+        ? { ...state.guidedDraft, active: false, stopped: true, awaitingContinue: false }
+        : null
+    }));
+  }
+}
+
+function finishGuidedDraft(
+  get: () => PatentDraftState,
+  set: (partial: Partial<PatentDraftState> | ((state: PatentDraftState) => Partial<PatentDraftState>)) => void
+): void {
+  syncSpecificationDerived(set, get);
+  get().supplementChatAttachments.forEach((f) => removeSupplementChatBlob(f.id));
+  clearSupplementChatBlobs();
+  set({
+    supplementChatMessages: [],
+    supplementChatAttachments: [],
+    guidedDraft: null,
+    loadingStage: "",
+    refiningProgress: "",
+    activeTab: "supplement_chat"
+  });
+  get().initSupplementChatWelcome();
+  get().saveCurrentProject();
+}
+
 function uploadedFileAfterBlobRestore(file: UploadedFile): UploadedFile {
   const isHwp = file.extension === ".hwp" || file.extension === ".hwpx";
   let status = file.status;
@@ -680,6 +739,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
     supplementChatMessages: [],
     supplementChatAttachments: [],
     chemicalEmbodimentAnalysis: null,
+    guidedDraft: null,
 
     setProjectTitle: (title) => {
       set((state) => ({
@@ -864,6 +924,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
     },
 
     createNewProject: () => {
+      resetGuidedDraftAbort();
       clearFileBlobs();
       clearSupplementChatBlobs();
       clearChemicalFormulaObjectUrls();
@@ -889,7 +950,8 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         lastSavedAt: null,
         supplementChatMessages: [],
         supplementChatAttachments: [],
-        chemicalEmbodimentAnalysis: null
+        chemicalEmbodimentAnalysis: null,
+        guidedDraft: null
       });
     },
 
@@ -920,6 +982,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
     },
 
     loadProject: (snapshot) => {
+      resetGuidedDraftAbort();
       const projectId = snapshot.currentProject.id;
       setFileBlobProjectContext(projectId);
       clearFileBlobs();
@@ -960,7 +1023,8 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
         supplementChatAttachments: [],
         chemicalEmbodimentAnalysis: snapshot.chemicalEmbodimentAnalysis
           ? normalizeChemicalEmbodimentAnalysis(snapshot.chemicalEmbodimentAnalysis)
-          : null
+          : null,
+        guidedDraft: null
       });
       clearSupplementChatBlobs();
       scheduleUploadedFilesRestore(projectId, uploadedFiles, get, set);
@@ -1315,45 +1379,65 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
     },
 
     runFullDraft: async () => {
-      const state = get();
-      set({ loadingStage: "full", refiningProgress: "", error: "", activeTab: "analysis" });
-
       try {
         assertCanRunAi();
-        await waitForProjectFileRestore(state.currentProject.id);
+        await waitForProjectFileRestore(get().currentProject.id);
         const uploadError = validateMaterialsForAnalyze(get().uploadedFiles, getFileBlob);
         if (uploadError) {
-          set({ error: uploadError, loadingStage: "" });
+          set({ error: uploadError });
           return;
         }
-        const latest = get();
-        const input = buildInventionInput(
-          latest.currentProject,
-          latest.textInputs,
-          latest.uploadedFiles,
-          latest.options
-        );
-        const formData = buildMaterialsFormData(latest);
-        const response = await fetch("/api/full-draft", { method: "POST", body: formData });
-        if (!response.ok) {
-          throw new Error(await parseApiErrorResponse(response, "전체 자동 작성에 실패했습니다"));
-        }
-        const result = (await response.json()) as FullDraftResult;
-        applyFullDraftResult(set, get, result);
-        set({ input, loadingStage: "refine" });
-        await runPostFullDraftRefinement(set, get);
-        get().supplementChatAttachments.forEach((f) => removeSupplementChatBlob(f.id));
-        clearSupplementChatBlobs();
-        set({ supplementChatMessages: [], supplementChatAttachments: [] });
-        get().initSupplementChatWelcome();
-        set({ activeTab: "supplement_chat" });
-        get().saveCurrentProject();
+
+        resetGuidedDraftAbort();
+        const steps = buildGuidedDraftPlan(get().options);
+        set({
+          guidedDraft: {
+            active: true,
+            stepIndex: 0,
+            totalSteps: steps.length,
+            steps,
+            awaitingContinue: false,
+            currentStepLabel: steps[0]?.label ?? "",
+            focusSectionId: null,
+            figureDescriptions: [],
+            stopped: false
+          },
+          error: "",
+          refiningProgress: "",
+          activeTab: "analysis"
+        });
+        await runGuidedDraftStepEngine(get, set);
       } catch (err) {
-        set({ error: formatFetchError(err, "전체 자동 작성 중 오류가 발생했습니다.") });
-      } finally {
-        get().specificationSections.forEach((s) => get().setSectionGenerating(s.section_id, false));
-        set({ loadingStage: "", refiningProgress: "" });
+        set({
+          error: formatFetchError(err, "전체 자동 작성 중 오류가 발생했습니다."),
+          guidedDraft: null,
+          loadingStage: ""
+        });
       }
+    },
+
+    continueGuidedDraft: () => {
+      const gd = get().guidedDraft;
+      if (!gd?.active || !gd.awaitingContinue || get().loadingStage === "guided_step") return;
+      get().saveCurrentProject();
+      advanceGuidedDraftIndex(
+        get as () => import("@/lib/workflow/executeGuidedDraftStep").GuidedDraftStoreSlice,
+        set as import("@/lib/workflow/executeGuidedDraftStep").SetState
+      );
+      void runGuidedDraftStepEngine(get, set);
+    },
+
+    stopGuidedDraft: () => {
+      requestGuidedDraftAbort();
+      get().specificationSections.forEach((s) => get().setSectionGenerating(s.section_id, false));
+      set((state) => ({
+        guidedDraft: state.guidedDraft
+          ? { ...state.guidedDraft, active: false, stopped: true, awaitingContinue: false }
+          : null,
+        loadingStage: "",
+        refiningProgress: ""
+      }));
+      get().saveCurrentProject();
     },
 
     regenerateSection: async (sectionId, options) => {

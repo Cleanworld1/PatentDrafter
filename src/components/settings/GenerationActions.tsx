@@ -77,6 +77,10 @@ export function GenerationActions() {
       >
         워크플로우 전체 자동 작성
       </button>
+      <p className="generation-stage2-hint">
+        항목마다 AI 요청을 나누어 실행합니다. 각 단계 결과를 확인한 뒤 「계속」을 누르세요. 「중단」으로
+        언제든 멈출 수 있습니다.
+      </p>
       <details className="legacy-actions">
         <summary>레거시 단계 실행</summary>
         <button
