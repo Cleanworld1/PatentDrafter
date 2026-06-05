@@ -1,4 +1,5 @@
 import type { OpenAiContentPart } from "@/lib/ai/multimodalRequestBuilder";
+import { applyChatCompletionLimits } from "@/lib/ai/openAiCompletionParams";
 import { messageFromOpenAiHttpError } from "@/lib/ai/openAiHttpError";
 import { buildOpenAiAuthHeaders } from "@/lib/ai/openAiRequestHeaders";
 
@@ -16,17 +17,14 @@ export async function streamOpenAiPlainText(
     { role: "system", content: PLAIN_SYSTEM },
     { role: "user", content: parts }
   ];
-  const body: Record<string, unknown> = {
-    model,
-    messages,
-    stream: true
-  };
-  if (/^gpt-5|^o\d|^o[34]/.test(model)) {
-    body.max_completion_tokens = 16384;
-  } else {
-    body.temperature = 0.3;
-    body.max_tokens = 16384;
-  }
+  const body = applyChatCompletionLimits(
+    {
+      model,
+      messages,
+      stream: true
+    },
+    model
+  );
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

@@ -1,3 +1,4 @@
+import { applyChatCompletionLimits } from "@/lib/ai/openAiCompletionParams";
 import { buildOpenAiAuthHeaders } from "@/lib/ai/openAiRequestHeaders";
 import { flattenModelIds } from "@/lib/ai/openAiModelCatalog";
 import { sanitizeOpenAiApiKey } from "@/lib/ai/sanitizeOpenAiApiKey";
@@ -15,14 +16,14 @@ export interface ProbeOpenAiModelsResult {
 }
 
 function chatBodyForModel(model: string): Record<string, unknown> {
-  const base = {
+  return applyChatCompletionLimits(
+    {
+      model,
+      messages: [{ role: "user", content: "say ok" }]
+    },
     model,
-    messages: [{ role: "user", content: "say ok" }]
-  };
-  if (/^gpt-5|^o\d|^o[34]/.test(model)) {
-    return { ...base, max_completion_tokens: 8 };
-  }
-  return { ...base, max_tokens: 8 };
+    8
+  );
 }
 
 export async function probeOpenAiModels(

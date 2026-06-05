@@ -1,3 +1,4 @@
+import type { OpenAiReasoningEffort } from "@/lib/ai/openAiCompletionParams";
 import { create } from "zustand";
 
 const DEFAULT_MODEL = "gpt-4o";
@@ -9,6 +10,9 @@ interface OpenAiSessionState {
   serverFallbackAvailable: boolean;
   devMockAllowed: boolean;
   suggestedModel: string;
+  configuredReasoningEffort: OpenAiReasoningEffort | null;
+  activeReasoningEffort: OpenAiReasoningEffort | null;
+  reasoningEffortSupported: boolean;
   envProjectConfigured: boolean;
   envOrganizationConfigured: boolean;
   configLoaded: boolean;
@@ -21,6 +25,9 @@ interface OpenAiSessionState {
     serverFallbackAvailable: boolean;
     devMockAllowed?: boolean;
     suggestedModel: string;
+    configuredReasoningEffort?: OpenAiReasoningEffort | null;
+    activeReasoningEffort?: OpenAiReasoningEffort | null;
+    reasoningEffortSupported?: boolean;
     envProjectConfigured?: boolean;
     envOrganizationConfigured?: boolean;
   }) => void;
@@ -36,6 +43,9 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
   serverFallbackAvailable: false,
   devMockAllowed: false,
   suggestedModel: DEFAULT_MODEL,
+  configuredReasoningEffort: null,
+  activeReasoningEffort: null,
+  reasoningEffortSupported: false,
   envProjectConfigured: false,
   envOrganizationConfigured: false,
   configLoaded: false,
@@ -51,6 +61,9 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
     serverFallbackAvailable,
     devMockAllowed,
     suggestedModel,
+    configuredReasoningEffort,
+    activeReasoningEffort,
+    reasoningEffortSupported,
     envProjectConfigured,
     envOrganizationConfigured
   }) =>
@@ -58,6 +71,9 @@ export const useSessionApiKeyStore = create<OpenAiSessionState>((set, get) => ({
       serverFallbackAvailable,
       devMockAllowed: Boolean(devMockAllowed),
       suggestedModel,
+      configuredReasoningEffort: configuredReasoningEffort ?? null,
+      activeReasoningEffort: activeReasoningEffort ?? null,
+      reasoningEffortSupported: Boolean(reasoningEffortSupported),
       envProjectConfigured: Boolean(envProjectConfigured),
       envOrganizationConfigured: Boolean(envOrganizationConfigured),
       selectedModel: get().selectedModel === DEFAULT_MODEL ? suggestedModel : get().selectedModel

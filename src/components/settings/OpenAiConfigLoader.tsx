@@ -15,6 +15,9 @@ export function OpenAiConfigLoader() {
       const data = await fetchOpenAiConfig();
       setServerConfig({
         suggestedModel: data.suggestedModel,
+        configuredReasoningEffort: data.configuredReasoningEffort,
+        activeReasoningEffort: data.activeReasoningEffort,
+        reasoningEffortSupported: data.reasoningEffortSupported,
         serverFallbackAvailable: data.serverFallbackAvailable,
         devMockAllowed: data.devMockAllowed,
         envProjectConfigured: data.envProjectConfigured,

@@ -1,5 +1,6 @@
 import type { OpenAiContentPart } from "@/lib/ai/multimodalRequestBuilder";
 import { messageFromOpenAiHttpError } from "@/lib/ai/openAiHttpError";
+import { applyChatCompletionLimits } from "@/lib/ai/openAiCompletionParams";
 import {
   getDefaultModelName,
   getServerEnvApiKey,
@@ -116,10 +117,7 @@ function buildChatCompletionBody(
   if (outputMode === "json") {
     base.response_format = { type: "json_object" };
   }
-  if (/^gpt-5|^o\d|^o[34]/.test(model)) {
-    return { ...base, max_completion_tokens: 16384 };
-  }
-  return { ...base, temperature: 0.3, max_tokens: 16384 };
+  return applyChatCompletionLimits(base, model);
 }
 
 export function getOpenAiConfig() {

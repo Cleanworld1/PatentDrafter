@@ -1,5 +1,6 @@
 "use client";
 
+import { REASONING_EFFORT_LABELS } from "@/lib/ai/openAiCompletionParams";
 import { useSessionApiKeyStore } from "@/store/sessionApiKeyStore";
 
 export function OpenAiModelSelect() {
@@ -7,6 +8,9 @@ export function OpenAiModelSelect() {
     serverFallbackAvailable,
     devMockAllowed,
     suggestedModel,
+    configuredReasoningEffort,
+    activeReasoningEffort,
+    reasoningEffortSupported,
     envProjectConfigured,
     configLoaded,
     configError
@@ -50,6 +54,24 @@ export function OpenAiModelSelect() {
         사용 중 모델: <strong>{configLoaded ? suggestedModel : "…"}</strong>
       </p>
 
+      {configLoaded && configuredReasoningEffort && (
+        <p className="openai-model-active">
+          추론 강도:{" "}
+          <strong>
+            {activeReasoningEffort
+              ? REASONING_EFFORT_LABELS[activeReasoningEffort]
+              : `${configuredReasoningEffort} (현재 모델 미지원)`}
+          </strong>
+        </p>
+      )}
+
+      {configLoaded && configuredReasoningEffort && !reasoningEffortSupported && (
+        <p className="openai-model-hint openai-model-hint--warn">
+          <code>OPENAI_REASONING_EFFORT</code>는 gpt-5·o 시리즈에서만 적용됩니다.{" "}
+          <code>{suggestedModel}</code>에는 반영되지 않습니다.
+        </p>
+      )}
+
       {configLoaded && serverFallbackAvailable && !envProjectConfigured && (
         <p className="openai-model-hint openai-model-hint--warn">
           <code>OPENAI_PROJECT_ID</code>가 없습니다. <code>sk-proj-</code> Key 사용 시 .env.local에
@@ -58,7 +80,8 @@ export function OpenAiModelSelect() {
       )}
 
       <p className="openai-model-hint">
-        모델은 UI가 아니라 <code>.env.local</code>의 <code>OPENAI_MODEL</code>만 적용됩니다.
+        모델·추론 강도는 UI가 아니라 <code>.env.local</code>의 <code>OPENAI_MODEL</code>,{" "}
+        <code>OPENAI_REASONING_EFFORT</code>(minimal | low | medium | high)만 적용됩니다.
         변경 후 dev 서버를 재시작하세요.
       </p>
       <p className="openai-model-hint">
