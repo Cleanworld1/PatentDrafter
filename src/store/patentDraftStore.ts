@@ -38,8 +38,14 @@ import {
 import { buildCurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
 import {
   buildLiveClaimsFromSections,
+  resolveSectionConciseInstruction,
   resolveSectionRewriteInstruction
 } from "@/lib/regenerateSectionContext";
+import {
+  shouldReplaceSectionFresh,
+  streamRegenerateSectionRequest,
+  type SectionRegenerateMode
+} from "@/lib/client/regenerateSectionStreaming";
 import { dedupeSpecificationSections } from "@/lib/dedupeSpecificationSections";
 import { downloadBlobFile, sanitizeDownloadBaseName } from "@/lib/downloadTextFile";
 import {
@@ -387,7 +393,7 @@ interface PatentDraftState {
     sectionId: string,
     options?: {
       userInstruction?: string;
-      mode?: "rewrite" | "elaborate" | "supplement";
+      mode?: "rewrite" | "elaborate" | "supplement" | "concise";
       markRelatedSectionsForReview?: "claim" | "drawing";
     }
   ) => Promise<void>;
@@ -503,56 +509,49 @@ async function callRegenerateSection(
   get: () => PatentDraftState,
   set: (partial: Partial<PatentDraftState> | ((state: PatentDraftState) => Partial<PatentDraftState>)) => void,
   sectionId: string,
-  userInstruction?: string
+  userInstruction?: string,
+  options?: { mode?: SectionRegenerateMode; previousContent?: string }
 ): Promise<void> {
   const state = get();
   if (!state.analysis) throw new Error("발명 분석이 없습니다.");
   const current = state.specificationSections.find((s) => s.section_id === sectionId);
   if (!current) return;
 
-  const liveClaims = buildLiveClaimsFromSections(state.specificationSections, state.claims);
-  const resolvedInstruction =
-    userInstruction ??
-    resolveSectionRewriteInstruction(sectionId, { ...state, analysis: state.analysis }, "rewrite");
+  const mode = options?.mode ?? "rewrite";
+  const previousContent = options?.previousContent ?? current.content;
+  const replaceFresh = shouldReplaceSectionFresh(mode);
 
-  const response = await fetch("/api/regenerate-section", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: buildJsonWithOpenAi({
-      sectionId,
-      sectionType: sectionIdToType(sectionId),
-      currentContent: current.content,
-      analysis: state.analysis,
-      relatedClaims: liveClaims,
-      specificationSections: state.specificationSections.map((s) => ({
-        section_id: s.section_id,
-        content: s.content
-      })),
-      userInstruction: resolvedInstruction,
-      drawingContext: buildCurrentDrawingContext(
-        state.specificationSections,
-        state.drawingPrompts
-      ),
-      inventionMakingEnabled: state.options.inventionMakingEnabled,
-      chemicalInventionEnabled: state.options.chemicalInventionEnabled,
-      chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
-      chemicalFormulaCatalog: isChemicalInventionEnabled(state.options.chemicalInventionEnabled)
-        ? buildChemicalFormulaCatalog(state.uploadedFiles)
-        : []
-    })
-  });
-  if (!response.ok) {
-    throw new Error(await parseApiErrorResponse(response, "섹션 재생성에 실패했습니다"));
+  if (replaceFresh) {
+    set((s) => ({
+      specificationSections: s.specificationSections.map((sec) =>
+        sec.section_id === sectionId ? { ...sec, content: "" } : sec
+      )
+    }));
   }
-  const data = (await response.json()) as { content: string };
-  const now = new Date().toISOString();
-  set((state) => ({
-    specificationSections: state.specificationSections.map((s) =>
-      s.section_id === sectionId
-        ? { ...s, content: data.content, lastUpdatedAt: now }
-        : s
-    )
-  }));
+
+  const slice = {
+    analysis: state.analysis,
+    specificationSections: get().specificationSections,
+    claims: state.claims,
+    drawingPrompts: state.drawingPrompts,
+    options: state.options,
+    chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
+    uploadedFiles: state.uploadedFiles
+  };
+
+  await streamRegenerateSectionRequest(
+    slice,
+    sectionId,
+    { mode, userInstruction, previousContent },
+    (display) => {
+      const now = new Date().toISOString();
+      set((s) => ({
+        specificationSections: s.specificationSections.map((sec) =>
+          sec.section_id === sectionId ? { ...sec, content: display, lastUpdatedAt: now } : sec
+        )
+      }));
+    }
+  );
 }
 
 async function runPostFullDraftRefinement(
@@ -601,14 +600,20 @@ async function runPostFullDraftRefinement(
           figureDescriptions.push(figData.content);
         }
         const instruction = buildDetailedDescriptionElaborateInstruction(figureDescriptions);
-        await callRegenerateSection(get, set, "detailed_description", instruction);
+        await callRegenerateSection(get, set, "detailed_description", instruction, {
+          mode: "elaborate"
+        });
       } else {
         const instruction = resolveSectionRewriteInstruction(
           step.sectionId,
           { ...get(), analysis: get().analysis! },
           step.mode
         );
-        await callRegenerateSection(get, set, step.sectionId, instruction);
+        await callRegenerateSection(get, set, step.sectionId, instruction, {
+          mode: step.mode,
+          previousContent: get().specificationSections.find((s) => s.section_id === step.sectionId)
+            ?.content
+        });
         if (step.sectionId.startsWith("claim_")) {
           set((s) => ({
             claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)
@@ -1519,6 +1524,8 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
       if (!current) return;
 
       const mode = options?.mode ?? "rewrite";
+      const previousContent = current.content;
+
       const userInstruction =
         options?.userInstruction ??
         (mode === "supplement"
@@ -1528,11 +1535,17 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
               buildLiveClaimsFromSections(state.specificationSections, state.claims),
               state.drawingPrompts
             )
-          : resolveSectionRewriteInstruction(
-              sectionId,
-              { ...state, analysis: state.analysis },
-              mode === "elaborate" ? "elaborate" : "rewrite"
-            ));
+          : mode === "concise"
+            ? resolveSectionConciseInstruction(
+                sectionId,
+                { ...state, analysis: state.analysis },
+                previousContent
+              )
+            : resolveSectionRewriteInstruction(
+                sectionId,
+                { ...state, analysis: state.analysis },
+                mode === "elaborate" ? "elaborate" : "rewrite"
+              ));
 
       get().setSectionGenerating(sectionId, true);
       set({ error: "" });
@@ -1570,10 +1583,14 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
             get,
             set,
             sectionId,
-            buildDetailedDescriptionElaborateInstruction(figureDescriptions)
+            buildDetailedDescriptionElaborateInstruction(figureDescriptions),
+            { mode: "elaborate" }
           );
         } else {
-          await callRegenerateSection(get, set, sectionId, userInstruction);
+          await callRegenerateSection(get, set, sectionId, userInstruction, {
+            mode,
+            previousContent
+          });
         }
 
         if (sectionId.startsWith("claim_")) {

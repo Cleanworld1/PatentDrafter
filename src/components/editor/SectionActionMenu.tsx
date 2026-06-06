@@ -95,7 +95,7 @@ export function SectionActionMenu({
             type="button"
             className="section-action-btn"
             onClick={() => void regenerateSection(sectionId, { mode: "rewrite" })}
-            title="다시 작성"
+            title="기존 내용을 지우고 전체를 새로 작성"
           >
             다시 작성
           </button>
@@ -110,7 +110,12 @@ export function SectionActionMenu({
             더 구체화
           </button>
         )}
-        <button type="button" className="section-action-btn" disabled title="TODO">
+        <button
+          type="button"
+          className="section-action-btn"
+          onClick={() => void regenerateSection(sectionId, { mode: "concise" })}
+          title="기존 내용을 지우고 더 짧게 다시 작성"
+        >
           더 간결하게
         </button>
         <button type="button" className="section-action-btn" disabled title="TODO">

@@ -10,13 +10,15 @@ import {
   resolveSectionRewriteInstruction
 } from "@/lib/regenerateSectionContext";
 import {
+  shouldReplaceSectionFresh,
+  streamRegenerateSectionRequest
+} from "@/lib/client/regenerateSectionStreaming";
+import {
   buildDetailedIntroInstruction,
   buildDetailedOutroOnlyInstruction
 } from "@/prompts/guidedDetailedDescription";
 import { buildCurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
 import { normalizeDrawingPrompts, normalizeInventionAnalysis, normalizeChemicalEmbodimentAnalysis } from "@/lib/jsonSchema";
-import { buildChemicalFormulaCatalog } from "@/lib/chemicalFormulaCatalog";
-import { isChemicalInventionEnabled } from "@/knowledge/chemicalInventionRules";
 import { specificationToSections } from "@/lib/specificationSections";
 import type {
   ClaimDraft,
@@ -25,7 +27,6 @@ import type {
   UploadedFile
 } from "@/types/patentDraft";
 import type { WorkflowState } from "@/types/patentWorkflow";
-import { sectionIdToType } from "@/types/specificationSection";
 
 export interface GuidedDraftStoreSlice {
   currentProject: { id: string; title: string; updatedAt: string; status: string };
@@ -98,62 +99,51 @@ function appendSectionContent(set: SetState, get: GetState, sectionId: string, a
   setSectionContent(set, sectionId, merged);
 }
 
-function buildRegenerateSectionPayload(get: GetState, sectionId: string, userInstruction: string) {
-  const state = get();
-  if (!state.analysis) throw new Error("발명 분석이 없습니다.");
-  const current = state.specificationSections.find((s) => s.section_id === sectionId);
-  if (!current) throw new Error(`섹션 ${sectionId} 없음`);
-
-  const liveClaims = buildLiveClaimsFromSections(state.specificationSections, state.claims);
-
-  return {
-    sectionId,
-    sectionType: sectionIdToType(sectionId),
-    currentContent: current.content,
-    analysis: state.analysis,
-    relatedClaims: liveClaims,
-    specificationSections: state.specificationSections.map((s) => ({
-      section_id: s.section_id,
-      content: s.content
-    })),
-    userInstruction,
-    drawingContext: buildCurrentDrawingContext(state.specificationSections, state.drawingPrompts),
-    inventionMakingEnabled: state.options.inventionMakingEnabled,
-    chemicalInventionEnabled: state.options.chemicalInventionEnabled,
-    chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
-    chemicalFormulaCatalog: isChemicalInventionEnabled(state.options.chemicalInventionEnabled)
-      ? buildChemicalFormulaCatalog(state.uploadedFiles)
-      : []
-  };
-}
-
 async function regenerateSectionContent(
   get: GetState,
   set: SetState,
   sectionId: string,
   userInstruction: string,
-  options?: { contentPrefix?: string }
+  options?: { contentPrefix?: string; mode?: "rewrite" | "elaborate" }
 ): Promise<string> {
   const prefix = options?.contentPrefix?.trimEnd() ?? "";
-  const response = await fetch("/api/regenerate-section/stream", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: buildJsonWithOpenAi(buildRegenerateSectionPayload(get, sectionId, userInstruction))
-  });
+  const mode = options?.mode ?? "rewrite";
+  const state = get();
+  if (!state.analysis) throw new Error("발명 분석이 없습니다.");
 
-  return consumePlainTextSseStream(response, (streamed) => {
-    const display = prefix ? `${prefix}\n${streamed}` : streamed;
-    setSectionContent(set, sectionId, display);
-  });
+  const current = state.specificationSections.find((s) => s.section_id === sectionId);
+  const previousContent = current?.content ?? "";
+
+  if (shouldReplaceSectionFresh(mode)) {
+    setSectionContent(set, sectionId, "");
+  }
+
+  const slice = {
+    analysis: state.analysis,
+    specificationSections: get().specificationSections,
+    claims: state.claims,
+    drawingPrompts: state.drawingPrompts,
+    options: state.options,
+    chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
+    uploadedFiles: state.uploadedFiles
+  };
+
+  return streamRegenerateSectionRequest(
+    slice,
+    sectionId,
+    { mode, userInstruction, previousContent, contentPrefix: prefix },
+    (display) => setSectionContent(set, sectionId, display)
+  );
 }
 
 async function regenerateSection(
   get: GetState,
   set: SetState,
   sectionId: string,
-  userInstruction: string
+  userInstruction: string,
+  mode: "rewrite" | "elaborate" = "rewrite"
 ): Promise<void> {
-  await regenerateSectionContent(get, set, sectionId, userInstruction);
+  await regenerateSectionContent(get, set, sectionId, userInstruction, { mode });
 }
 
 async function streamFigureDescription(
@@ -355,7 +345,7 @@ export async function executeGuidedDraftStep(
           { ...state, analysis: state.analysis },
           step.mode
         );
-        await regenerateSection(get, set, step.sectionId, instruction);
+        await regenerateSection(get, set, step.sectionId, instruction, step.mode ?? "rewrite");
         if (step.sectionId.startsWith("claim_")) {
           set((s) => ({
             claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)

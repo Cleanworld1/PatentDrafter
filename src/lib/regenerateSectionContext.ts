@@ -134,6 +134,27 @@ export function formatWrittenSpecificationContext(
   );
 }
 
+const FRESH_REWRITE_LEAD =
+  "현재 항목 본문은 비워 두었으므로, [이미 작성된 명세서 전체]를 참고하여 **처음부터 전체를 새로** 작성하라. 이전 본문 문장을 그대로 반복·붙여넣지 말라. ";
+
+const PATENT_KOREAN_STYLE =
+  "국내 특허명세서 문체로 **한국어**만 사용하라. ";
+
+export const IMAGE_AI_DRAWING_NOTE =
+  "이미지 생성 AI(Genspark 등)가 글자·도형을 깨뜨리거나 미완성으로 그리지 않도록, 구성요소 명칭을 명확한 한글로 적고 생략 부호(…)·플레이스홀더·'TBD'·'추후 작성' 등 불완전 표현을 쓰지 말라. 흑백 특허 선도 한 장을 완결되게 그릴 수 있는 수준으로 지시하라. ";
+
+function wrapFreshSectionInstruction(base: string, isDrawing: boolean): string {
+  let text = `${FRESH_REWRITE_LEAD}${PATENT_KOREAN_STYLE}${base}`;
+  if (isDrawing) text += IMAGE_AI_DRAWING_NOTE;
+  return text;
+}
+
+function clipPreviousContent(text: string, max = 2500): string {
+  const t = text.trim();
+  if (!t) return "";
+  return t.length > max ? `${t.slice(0, max)}\n…(이하 생략)` : t;
+}
+
 function pickFeatureForDependentClaim(claimNumber: number, analysis: InventionAnalysis): string {
   const pool = [
     ...analysis.essential_elements.slice(1),
@@ -159,13 +180,16 @@ export function buildClaimRewriteUserInstruction(
     "앞 청구항과 동일한 문장을 그대로 반복하지 말라. 발명 분석표 문장만 베끼지 말고, 선행 청구항에 **추가·한정**하는 구성만 쓰라.";
 
   if (claimNumber === 1) {
-    return (
+  return (
+    wrapFreshSectionInstruction(
       `${baseRules} ` +
-      "독립항으로, claim_points·essential_elements를 반영해 **가장 넓은 합리적** 보호범위를 잡되 구체적 구성은 명시하라. " +
-      '\"…에 있어서,\"로 바로 시작하라. ' +
-      `핵심 요지: ${analysis.one_line_summary}. ` +
-      `우선 반영할 보호포인트: ${analysis.claim_points[0] ?? analysis.core_idea}`
-    );
+        "독립항으로, claim_points·essential_elements를 반영해 **가장 넓은 합리적** 보호범위를 잡되 구체적 구성은 명시하라. " +
+        '\"…에 있어서,\"로 바로 시작하라. ' +
+        `핵심 요지: ${analysis.one_line_summary}. ` +
+        `우선 반영할 보호포인트: ${analysis.claim_points[0] ?? analysis.core_idea}`,
+      false
+    )
+  );
   }
 
   const feature = pickFeatureForDependentClaim(claimNumber, analysis);
@@ -174,12 +198,13 @@ export function buildClaimRewriteUserInstruction(
       ? `청구항 ${prior[prior.length - 1].claim_number}`
       : "청구항 1";
 
-  return (
+  return wrapFreshSectionInstruction(
     `${baseRules} ` +
-    `종속항으로 ${citeTarget}에 있어서, 상기 …는 **${feature}**를 더 포함(또는 구체화)하는 것을 특징으로 하는 발명으로 작성하라. ` +
-    `이번 청구항에서 새로 추가할 차별 구성: ${feature}. ` +
-    `claim_points 참고: ${analysis.claim_points[claimNumber - 1] ?? analysis.claim_points[0] ?? "(없음)"}. ` +
-    "필수 핵심 구성 순서(독립항→핵심 종속→세부 종속)에 맞게, 이전 청구항과 **다른** 한정을 기재하라."
+      `종속항으로 ${citeTarget}에 있어서, 상기 …는 **${feature}**를 더 포함(또는 구체화)하는 것을 특징으로 하는 발명으로 작성하라. ` +
+      `이번 청구항에서 새로 추가할 차별 구성: ${feature}. ` +
+      `claim_points 참고: ${analysis.claim_points[claimNumber - 1] ?? analysis.claim_points[0] ?? "(없음)"}. ` +
+      "필수 핵심 구성 순서(독립항→핵심 종속→세부 종속)에 맞게, 이전 청구항과 **다른** 한정을 기재하라.",
+    false
   );
 }
 
@@ -195,13 +220,14 @@ export function buildDrawingRewriteUserInstruction(
 
   const refRules = getDrawingReferenceNumberRulesBlock();
 
-  return (
+  return wrapFreshSectionInstruction(
     `【도 ${figureNumber}】 한 장에 대한 **간결한** 도면 작성 프롬프트만 작성하라. ` +
-    `도 ${figureNumber}이 아닌 다른 도면(도 1, 도 2, 도 3 …)에 대한 프롬프트·설명·소제목을 출력하지 말라. ` +
-    "실제 그림을 그리지 말고, 도면 작성자/이미지 AI가 그릴 수 있는 짧은 텍스트 지시만 쓰라. " +
-    "화면·블록·단계·데이터 흐름을 항목별로 길게 나열하지 말고, 핵심 구성과 배치·연결만 적어라. " +
-    meta +
-    `\n\n${refRules}`
+      `도 ${figureNumber}이 아닌 다른 도면(도 1, 도 2, 도 3 …)에 대한 프롬프트·설명·소제목을 출력하지 말라. ` +
+      "실제 그림을 그리지 말고, 도면 작성자/이미지 AI가 그릴 수 있는 짧은 텍스트 지시만 쓰라. " +
+      "화면·블록·단계·데이터 흐름을 항목별로 길게 나열하지 말고, 핵심 구성과 배치·연결만 적어라. " +
+      meta +
+      `\n\n${refRules}`,
+    true
   );
 }
 
@@ -210,6 +236,28 @@ export function buildDrawingElaborateUserInstruction(
   drawingPrompt?: DrawingPrompt
 ): string {
   return buildDrawingRewriteUserInstruction(figureNumber, drawingPrompt);
+}
+
+export function resolveSectionConciseInstruction(
+  sectionId: string,
+  state: {
+    analysis: InventionAnalysis;
+    specificationSections: SpecificationSection[];
+    claims: ClaimDraft[];
+    drawingPrompts: DrawingPrompt[];
+  },
+  previousContent: string
+): string {
+  const figureNum = parseDrawingSectionNumber(sectionId);
+  const base = resolveSectionRewriteInstruction(sectionId, state, "rewrite");
+  const prior = clipPreviousContent(previousContent);
+  const priorBlock = prior ? `\n\n[이전 본문 — 이보다 더 짧고 간결하게]\n${prior}` : "";
+
+  const conciseRule = figureNum
+    ? "이전 본문보다 **짧게** 줄이되, 이미지 AI가 오류 없이 그릴 수 있을 만큼 구성·배치·연결은 명확히 남겨라."
+    : "이전 본문보다 **짧고 간결하게** 핵심만 남겨 작성하라. 불필요한 수식·중복·장황한 나열은 제거하라.";
+
+  return `${base} ${conciseRule}${priorBlock}`;
 }
 
 export function resolveSectionRewriteInstruction(
@@ -239,6 +287,6 @@ export function resolveSectionRewriteInstruction(
     return buildDrawingElaborateUserInstruction(figureNum, drawingPrompt);
   }
   return mode === "rewrite"
-    ? getDefaultRewriteInstruction(sectionId)
+    ? wrapFreshSectionInstruction(getDefaultRewriteInstruction(sectionId), false)
     : getDefaultElaborateInstruction(sectionId);
 }

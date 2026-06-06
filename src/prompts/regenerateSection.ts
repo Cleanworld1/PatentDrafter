@@ -99,7 +99,7 @@ export function buildRegenerateSectionPrompt(input: RegenerateSectionPromptInput
 ${input.sectionTitle}
 
 [현재 내용]
-${input.currentContent || "(비어 있음)"}
+${input.currentContent?.trim() ? input.currentContent : "(비어 있음 — [이미 작성된 명세서 전체]를 참고하여 대상 항목을 처음부터 새로 작성하라.)"}
 
 [발명 분석표]
 ${JSON.stringify(input.analysis, null, 2)}
@@ -166,6 +166,6 @@ ${getChemicalInventionRegenerateNote(input.chemicalInventionEnabled)}`
 ${getSectionOutputNoHeadingRule(input.sectionTitle)}
 
 출력 형식: 대상 항목 본문만 평문(한국어)으로 반환하라. JSON 객체·키·중괄호·따옴표로 감싼 구조는 절대 출력하지 말라. 【…】 형식의 항목 제목·소제목은 출력하지 말라.
-${input.sectionType === "drawing_prompt" ? `도면 생성용 텍스트 프롬프트이므로 title/purpose 등 필드명 없이 **간결한** 설명문만 작성하라. 화면·블록·단계를 과도하게 세분·나열하지 말라.${figureNum != null ? ` 오직 도 ${figureNum} 한 장에 대한 프롬프트만 출력하고, 다른 도면 번호의 문단·프롬프트를 포함하지 말라.` : ""}` : ""}
+${input.sectionType === "drawing_prompt" ? `도면 생성용 텍스트 프롬프트이므로 title/purpose 등 필드명 없이 **간결한** 설명문만 작성하라. 화면·블록·단계를 과도하게 세분·나열하지 말라. Genspark 등 이미지 AI가 글자·도형을 깨뜨리지 않도록 구성요소명은 명확한 한글로, 미완성·플레이스홀더 없이 작성하라.${figureNum != null ? ` 오직 도 ${figureNum} 한 장에 대한 프롬프트만 출력하고, 다른 도면 번호의 문단·프롬프트를 포함하지 말라.` : ""}` : ""}
 ${input.sectionType === "claim" ? "청구항 본문만 출력하라. 목차에 이미 【청구항 N】이 있으므로 \"청구항 N.\" / \"청구항 N:\" 머리말은 쓰지 말고, 독립항은 \"…에 있어서,\"로 바로 시작하라." : ""}`;
 }
