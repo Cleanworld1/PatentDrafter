@@ -61,10 +61,12 @@ describe("patent draft MVP", () => {
     const normalized = normalizeInventionAnalysis({
       title_candidates: "단일 명칭",
       essential_elements: null,
-      prior_art_problems: ["문제1"]
+      prior_art_problems: ["문제1"],
+      claim_points: [{ point: "핵심 구성 A" }, { text: "핵심 구성 B" }]
     } as unknown as Partial<import("@/types/patentDraft").InventionAnalysis>);
     expect(normalized.title_candidates).toEqual(["단일 명칭"]);
     expect(normalized.essential_elements).toEqual([]);
+    expect(normalized.claim_points).toEqual(["핵심 구성 A", "핵심 구성 B"]);
     expect(coerceStringArray(undefined)).toEqual([]);
   });
 

@@ -14,18 +14,17 @@ const REWRITE_SUFFIX =
   " 심사관 제출용 명세서 품질 규칙(자료 출처 표현 금지, 배경기술 외 일 실시예 문체)을 최우선 적용하라. 【…】 형식의 목차·항목 제목은 출력하지 말고 본문만 작성하라. 빈 줄(\\n\\n) 없이 단일 줄바꿈(\\n)만 사용하라.";
 
 const REWRITE_DEFAULT =
-  "발명 분석표와 해당 항목 작성 지침에 맞게, 현재 초안을 참고하되 품질이 낮은 표현은 버리고 해당 항목만 처음부터 다시 작성하라. 국내 특허명세서 문체를 사용하라. 다른 항목은 출력하지 말라." +
+  "발명 분석표·[이미 작성된 명세서 전체]·해당 항목 작성 지침에 맞게, 현재 초안을 참고하되 품질이 낮은 표현은 버리고 해당 항목만 처음부터 다시 작성하라. 다른 항목과 용어·논리가 일치해야 한다. 국내 특허명세서 문체를 사용하라. 다른 항목은 출력하지 말라." +
   REWRITE_SUFFIX;
 
 const DRAWING_REF_RULES = getDrawingReferenceNumberRulesBlock();
 
 const DRAWING_REWRITE =
-  "실제 도면 이미지를 생성·묘사하지 말라. 도면 작성자가 특허 도면을 그릴 수 있도록 하는 상세한 텍스트 프롬프트만 작성하라. 구성요소, 상대 배치, 연결·화살표 의미, 참조부호 규칙, 흑백 선도 스타일을 포함하라." +
+  "실제 도면 이미지를 생성·묘사하지 말라. 도면 작성자가 특허 도면을 그릴 수 있도록 **간결한** 텍스트 프롬프트만 작성하라. " +
+  "핵심 구성요소·상대 배치·연결·화살표 의미·참조부호·흑백 선도 스타일만 짧게 적고, 화면/블록/단계를 과도하게 세분·나열하지 말라." +
   `\n\n${DRAWING_REF_RULES}`;
 
-const DRAWING_ELABORATE =
-  "위 도면 작성 프롬프트를 한 단계 더 구체화하라. 블록/화면/단계/데이터·제어 흐름을 항목별로 명시하고, 누락된 필수 구성요소가 없게 하라. 도면 그림 자체는 만들지 말고 텍스트 지시만 출력하라." +
-  `\n\n${DRAWING_REF_RULES}`;
+const DRAWING_ELABORATE = DRAWING_REWRITE;
 
 const BRIEF_DRAWINGS_REWRITE =
   "【도면의 간단한 설명】만 다시 작성하라. [현재 명세서 도면 구성]에 나열된 도면 개수·번호와 정확히 일치하게, 각 도면마다 \"도 N은(는) …를 나타낸다.\" 문장을 빠짐없이 작성하라. 목록에 없는 도면 번호는 쓰지 말고, 목록의 도면은 하나도 빠뜨리지 말라." +
@@ -139,7 +138,6 @@ export function buildPostFullDraftRefinementPlan(
 
   for (let i = 1; i <= drawingCount; i += 1) {
     steps.push({ sectionId: `drawing_${i}`, mode: "rewrite" });
-    steps.push({ sectionId: `drawing_${i}`, mode: "elaborate" });
   }
 
   steps.push({ sectionId: "detailed_description", mode: "rewrite" });

@@ -5,6 +5,10 @@ import {
 } from "@/lib/workflow/postFullDraftRefinement";
 import type { CurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
 import type { ClaimDraft, DrawingPrompt, InventionAnalysis, SpecificationSection } from "@/types/patentDraft";
+import { sectionIdToTitle } from "@/types/specificationSection";
+
+const WRITTEN_SPEC_SECTION_MAX = 2500;
+const WRITTEN_SPEC_TOTAL_MAX = 22_000;
 
 export function parseDrawingSectionNumber(sectionId: string): number | null {
   const m = sectionId.match(/^drawing_(\d+)$/);
@@ -93,6 +97,43 @@ ${priorBlock}
 ${supportBlock ? `[이미 작성된 명세서 발췌]\n${supportBlock}` : ""}`;
 }
 
+/** 편집기에 이미 작성된 다른 항목 본문 (다시 작성 시 전체 맥락) */
+export function formatWrittenSpecificationContext(
+  sections: SpecificationSection[],
+  excludeSectionId?: string
+): string {
+  const parts: string[] = [];
+  let total = 0;
+
+  for (const sec of sections) {
+    if (excludeSectionId && sec.section_id === excludeSectionId) continue;
+    const body = sec.content?.trim();
+    if (!body) continue;
+
+    const title = sectionIdToTitle(sec.section_id);
+    const clipped =
+      body.length > WRITTEN_SPEC_SECTION_MAX
+        ? `${body.slice(0, WRITTEN_SPEC_SECTION_MAX)}\n…(생략)`
+        : body;
+    const block = `■ ${title}\n${clipped}`;
+
+    if (total + block.length > WRITTEN_SPEC_TOTAL_MAX) {
+      parts.push("…(이미 작성된 다른 항목 일부 생략 — 토큰 한도)");
+      break;
+    }
+    parts.push(block);
+    total += block.length;
+  }
+
+  if (parts.length === 0) return "";
+
+  return (
+    `[이미 작성된 명세서 전체 — 용어·논리·순서 일치 필수]\n` +
+    "아래는 편집기에 반영된 **다른 항목**들이다. 대상 항목을 다시 작성할 때 이 내용과 모순되지 않게 하고, 용어·표현·기술 논리를 통일하라.\n\n" +
+    parts.join("\n\n")
+  );
+}
+
 function pickFeatureForDependentClaim(claimNumber: number, analysis: InventionAnalysis): string {
   const pool = [
     ...analysis.essential_elements.slice(1),
@@ -155,9 +196,10 @@ export function buildDrawingRewriteUserInstruction(
   const refRules = getDrawingReferenceNumberRulesBlock();
 
   return (
-    `【도 ${figureNumber}】 한 장에 대한 도면 작성 프롬프트만 작성하라. ` +
+    `【도 ${figureNumber}】 한 장에 대한 **간결한** 도면 작성 프롬프트만 작성하라. ` +
     `도 ${figureNumber}이 아닌 다른 도면(도 1, 도 2, 도 3 …)에 대한 프롬프트·설명·소제목을 출력하지 말라. ` +
-    "실제 그림을 그리지 말고, 도면 작성자/이미지 AI가 그릴 수 있는 텍스트 지시만 쓰라. " +
+    "실제 그림을 그리지 말고, 도면 작성자/이미지 AI가 그릴 수 있는 짧은 텍스트 지시만 쓰라. " +
+    "화면·블록·단계·데이터 흐름을 항목별로 길게 나열하지 말고, 핵심 구성과 배치·연결만 적어라. " +
     meta +
     `\n\n${refRules}`
   );
@@ -167,13 +209,7 @@ export function buildDrawingElaborateUserInstruction(
   figureNumber: number,
   drawingPrompt?: DrawingPrompt
 ): string {
-  return (
-    `${buildDrawingRewriteUserInstruction(figureNumber, drawingPrompt)} ` +
-    "기존 【도 " +
-    figureNumber +
-    "】 프롬프트를 한 단계 더 구체화하라. 블록/화면/단계/데이터·제어 흐름을 항목별로 명시하라. " +
-    "다른 도 번호 내용은 추가하지 말라."
-  );
+  return buildDrawingRewriteUserInstruction(figureNumber, drawingPrompt);
 }
 
 export function resolveSectionRewriteInstruction(

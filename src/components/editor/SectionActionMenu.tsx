@@ -100,14 +100,16 @@ export function SectionActionMenu({
             다시 작성
           </button>
         )}
-        <button
-          type="button"
-          className="section-action-btn"
-          onClick={() => void regenerateSection(sectionId, { mode: "elaborate" })}
-          title="더 구체화"
-        >
-          더 구체화
-        </button>
+        {!isDrawingSection && (
+          <button
+            type="button"
+            className="section-action-btn"
+            onClick={() => void regenerateSection(sectionId, { mode: "elaborate" })}
+            title="더 구체화"
+          >
+            더 구체화
+          </button>
+        )}
         <button type="button" className="section-action-btn" disabled title="TODO">
           더 간결하게
         </button>

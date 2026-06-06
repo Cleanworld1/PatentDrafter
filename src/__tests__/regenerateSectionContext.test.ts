@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { emptyInventionAnalysis } from "@/lib/jsonSchema";
+import { coerceItemToString, coerceStringArray, emptyInventionAnalysis } from "@/lib/jsonSchema";
 import {
   buildClaimRewriteUserInstruction,
   buildLiveClaimsFromSections,
   formatSingleDrawingContextBlock,
+  formatWrittenSpecificationContext,
   parseDrawingSectionNumber
 } from "@/lib/regenerateSectionContext";
 import type { ClaimDraft, SpecificationSection } from "@/types/patentDraft";
@@ -80,5 +81,39 @@ describe("regenerateSectionContext", () => {
     expect(claim2).toContain("청구항 1");
     expect(claim3).not.toBe(claim2);
     expect(claim3).toContain("이전 청구항과 **다른**");
+  });
+
+  it("formats written specification excluding target section", () => {
+    const sections: SpecificationSection[] = [
+      {
+        section_id: "technical_field",
+        title: "기술분야",
+        content: "인공지능 분야",
+        isGenerating: false,
+        lastUpdatedAt: ""
+      },
+      {
+        section_id: "claim_1",
+        title: "청구항 1",
+        content: "청구항 1 본문",
+        isGenerating: false,
+        lastUpdatedAt: ""
+      }
+    ];
+    const block = formatWrittenSpecificationContext(sections, "claim_1");
+    expect(block).toContain("이미 작성된 명세서 전체");
+    expect(block).toContain("기술분야");
+    expect(block).not.toContain("청구항 1 본문");
+  });
+});
+
+describe("coerceItemToString for analysis arrays", () => {
+  it("flattens object array items instead of [object Object]", () => {
+    const items = [{ element: "센서 모듈" }, { description: "제어 유닛" }];
+    expect(coerceStringArray(items)).toEqual(["센서 모듈", "제어 유닛"]);
+  });
+
+  it("coerces nested object fields for string columns", () => {
+    expect(coerceItemToString({ title: "스마트 공장 시스템" })).toBe("스마트 공장 시스템");
   });
 });

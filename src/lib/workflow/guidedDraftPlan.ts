@@ -112,13 +112,6 @@ export function buildGuidedDraftPlan(options: DraftOptions): GuidedDraftStep[] {
       mode: "rewrite",
       label: `${sectionIdToTitle(sectionId)} — AI 작성`
     });
-    steps.push({
-      id: `refine-${sectionId}-elaborate`,
-      kind: "refine_section",
-      sectionId,
-      mode: "elaborate",
-      label: `${sectionIdToTitle(sectionId)} — 구체화`
-    });
   }
 
   steps.push({

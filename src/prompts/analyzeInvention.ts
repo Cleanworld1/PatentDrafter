@@ -68,6 +68,10 @@ export function buildAnalyzeInventionPrompt(
 
 분석 목적은 단순 요약이 아니라, 청구항으로 보호받을 수 있는 기술적 구성을 도출하는 것이다.
 
+출력 JSON 규칙:
+- 모든 배열 필드(essential_elements, claim_points 등)의 **각 원소는 반드시 문자열(string)** 이어야 한다.
+- 객체·중첩 JSON·{ "name": "…" } 형태를 배열 원소로 넣지 말라. 읽기 쉬운 한국어 문장 문자열만 사용하라.
+
 주의:
 ${getInventionAnalysisModeNotes(inventionMaking)}
 ${getChemicalInventionStageNotes(chemicalInvention)}

@@ -13,9 +13,9 @@ describe("postFullDraftRefinement plan", () => {
       ids.indexOf("drawing_1:rewrite")
     );
     expect(ids).toContain("drawing_1:rewrite");
-    expect(ids).toContain("drawing_1:elaborate");
-    expect(ids).toContain("drawing_2:elaborate");
-    expect(ids.indexOf("drawing_2:elaborate")).toBeLessThan(ids.indexOf("detailed_description:rewrite"));
+    expect(ids).not.toContain("drawing_1:elaborate");
+    expect(ids).not.toContain("drawing_2:elaborate");
+    expect(ids.indexOf("drawing_2:rewrite")).toBeLessThan(ids.indexOf("detailed_description:rewrite"));
     expect(ids[ids.length - 1]).toBe("detailed_description:elaborate");
   });
 });

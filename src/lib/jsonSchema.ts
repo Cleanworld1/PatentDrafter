@@ -16,22 +16,72 @@ const stringFields: (keyof InventionAnalysis)[] = [
   "prior_art"
 ];
 
+export function coerceItemToString(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return coerceStringArray(value).join("; ");
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const preferredKeys = [
+      "text",
+      "description",
+      "name",
+      "title",
+      "value",
+      "content",
+      "label",
+      "summary",
+      "element",
+      "point",
+      "item",
+      "effect",
+      "problem",
+      "relationship",
+      "step",
+      "note",
+      "drawing",
+      "candidate"
+    ];
+    for (const key of preferredKeys) {
+      const v = obj[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    const nested = Object.values(obj)
+      .flatMap((v) => {
+        const s = coerceItemToString(v);
+        return s.trim() ? [s.trim()] : [];
+      })
+      .filter(Boolean);
+    if (nested.length) return nested.join(" — ");
+  }
+  const fallback = String(value);
+  return fallback === "[object Object]" ? "" : fallback;
+}
+
 export function coerceStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value
-      .map((v) => (typeof v === "string" ? v : v != null ? String(v) : ""))
-      .filter((s) => s.trim());
+      .flatMap((v) => {
+        const s = coerceItemToString(v);
+        return s.trim() ? [s.trim()] : [];
+      })
+      .filter(Boolean);
   }
   if (typeof value === "string" && value.trim()) {
     return [value.trim()];
+  }
+  if (value != null && typeof value === "object") {
+    const s = coerceItemToString(value);
+    return s.trim() ? [s.trim()] : [];
   }
   return [];
 }
 
 function coerceString(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value == null) return "";
-  return String(value);
+  return coerceItemToString(value);
 }
 
 const arrayFields: (keyof InventionAnalysis)[] = [

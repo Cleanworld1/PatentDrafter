@@ -16,6 +16,7 @@ describe("buildGuidedDraftPlan", () => {
     expect(plan.filter((s) => s.kind === "detailed_figure")).toHaveLength(3);
     expect(plan.some((s) => s.kind === "detailed_outro")).toBe(true);
     expect(plan.some((s) => s.kind === "finalize")).toBe(true);
+    expect(plan.some((s) => s.sectionId === "drawing_1" && s.mode === "elaborate")).toBe(false);
   });
 
   it("includes chemical step when enabled", () => {
