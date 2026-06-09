@@ -2,6 +2,7 @@ import { buildJsonWithOpenAi } from "@/lib/client/appendOpenAiFields";
 import { consumePlainTextSseStream } from "@/lib/client/consumePlainTextStream";
 import { buildMaterialsFormData } from "@/lib/client/buildAnalyzeFormData";
 import { parseApiErrorResponse } from "@/lib/client/parseApiError";
+import { clearSectionReviewFlags } from "@/lib/claimDrawingImpact";
 import { assembleSpecificationFromWorkflow } from "@/lib/workflow/assembleSpecification";
 import { isGuidedDraftAborted } from "@/lib/workflow/guidedDraftAbort";
 import type { GuidedDraftSession, GuidedDraftStep } from "@/lib/workflow/guidedDraftPlan";
@@ -84,9 +85,63 @@ function setSectionContent(set: SetState, sectionId: string, content: string): v
   const now = new Date().toISOString();
   set((s) => ({
     specificationSections: s.specificationSections.map((sec) =>
-      sec.section_id === sectionId ? { ...sec, content, lastUpdatedAt: now } : sec
+      sec.section_id === sectionId
+        ? {
+            ...sec,
+            content,
+            lastUpdatedAt: now,
+            ...(content.trim() ? { isDraft: false } : {})
+          }
+        : sec
     )
   }));
+}
+
+async function refineSectionWriteAndElaborate(
+  get: GetState,
+  set: SetState,
+  sectionId: string,
+  stepLabel: string
+): Promise<void> {
+  const state = get();
+  if (!state.analysis) throw new Error("발명 분석이 없습니다.");
+
+  const rewriteInstruction = resolveSectionRewriteInstruction(
+    sectionId,
+    { ...state, analysis: state.analysis },
+    "rewrite"
+  );
+  await regenerateSectionContent(get, set, sectionId, rewriteInstruction, { mode: "rewrite" });
+
+  if (sectionId.startsWith("claim_")) {
+    set((s) => ({
+      claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)
+    }));
+  }
+
+  set({ refiningProgress: `${stepLabel} (구체화)…` });
+
+  const afterRewrite = get();
+  const elaborateInstruction = resolveSectionRewriteInstruction(
+    sectionId,
+    { ...afterRewrite, analysis: afterRewrite.analysis! },
+    "elaborate"
+  );
+  await regenerateSectionContent(get, set, sectionId, elaborateInstruction, { mode: "elaborate" });
+
+  set((s) => ({
+    specificationSections: s.specificationSections.map((sec) =>
+      sec.section_id === sectionId
+        ? { ...clearSectionReviewFlags(sec), isDraft: false, isModified: false }
+        : sec
+    )
+  }));
+
+  if (sectionId.startsWith("claim_")) {
+    set((s) => ({
+      claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)
+    }));
+  }
 }
 
 /** 기존 본문을 유지한 채 뒤에 이어 붙임 */
@@ -108,10 +163,10 @@ async function regenerateSectionContent(
 ): Promise<string> {
   const prefix = options?.contentPrefix?.trimEnd() ?? "";
   const mode = options?.mode ?? "rewrite";
-  const state = get();
-  if (!state.analysis) throw new Error("발명 분석이 없습니다.");
+  const fresh = get();
+  if (!fresh.analysis) throw new Error("발명 분석이 없습니다.");
 
-  const current = state.specificationSections.find((s) => s.section_id === sectionId);
+  const current = fresh.specificationSections.find((s) => s.section_id === sectionId);
   const previousContent = current?.content ?? "";
 
   if (shouldReplaceSectionFresh(mode)) {
@@ -119,13 +174,13 @@ async function regenerateSectionContent(
   }
 
   const slice = {
-    analysis: state.analysis,
-    specificationSections: get().specificationSections,
-    claims: state.claims,
-    drawingPrompts: state.drawingPrompts,
-    options: state.options,
-    chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
-    uploadedFiles: state.uploadedFiles
+    analysis: fresh.analysis,
+    specificationSections: fresh.specificationSections,
+    claims: fresh.claims,
+    drawingPrompts: fresh.drawingPrompts,
+    options: fresh.options,
+    chemicalEmbodimentAnalysis: fresh.chemicalEmbodimentAnalysis,
+    uploadedFiles: fresh.uploadedFiles
   };
 
   return streamRegenerateSectionRequest(
@@ -337,20 +392,8 @@ export async function executeGuidedDraftStep(
         await runBootstrapStep(get, set);
         break;
       case "refine_section": {
-        if (!step.sectionId || !step.mode) break;
-        const state = get();
-        if (!state.analysis) break;
-        const instruction = resolveSectionRewriteInstruction(
-          step.sectionId,
-          { ...state, analysis: state.analysis },
-          step.mode
-        );
-        await regenerateSection(get, set, step.sectionId, instruction, step.mode ?? "rewrite");
-        if (step.sectionId.startsWith("claim_")) {
-          set((s) => ({
-            claims: buildLiveClaimsFromSections(s.specificationSections, s.claims)
-          }));
-        }
+        if (!step.sectionId) break;
+        await refineSectionWriteAndElaborate(get, set, step.sectionId, step.label);
         set({ activeTab: "spec_edit" });
         break;
       }

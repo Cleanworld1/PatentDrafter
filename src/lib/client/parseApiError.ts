@@ -5,12 +5,21 @@ export async function parseApiErrorResponse(
   fallback: string,
   context = "api.response"
 ): Promise<string> {
+  const rawText = await response.text().catch(() => "");
   try {
-    const data = (await response.json()) as { error?: string; message?: string };
-    if (data.error) return data.error;
-    if (data.message) return data.message;
+    const data = JSON.parse(rawText) as { error?: string; message?: string };
+    if (data.error?.trim()) return data.error.trim();
+    if (data.message?.trim()) return data.message.trim();
   } catch {
-    // ignore
+    // not json
+  }
+  const snippet = rawText.replace(/\s+/g, " ").trim().slice(0, 280);
+  if (snippet && !snippet.startsWith("<!DOCTYPE")) {
+    const msg = `${fallback}: ${snippet}`;
+    if (!response.ok) {
+      recordClientError(context, new Error(msg), { status: response.status });
+    }
+    return msg;
   }
   const msg = `${fallback} (HTTP ${response.status})`;
   if (!response.ok) {

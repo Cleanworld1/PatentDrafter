@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { getThinkingStepsForLoadingStage } from "@/lib/client/analysisThinkingSteps";
 import {
   getLoadingOverlayContent,
   shouldShowLoadingOverlay
 } from "@/lib/client/loadingMessages";
+import { ThinkingStepTicker } from "@/components/ui/ThinkingStepTicker";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 
 export function LoadingOverlay() {
@@ -24,6 +26,8 @@ export function LoadingOverlay() {
   }, [visible]);
 
   if (!visible || !content) return null;
+
+  const thinkingSteps = getThinkingStepsForLoadingStage(loadingStage);
 
   return (
     <div
@@ -50,9 +54,20 @@ export function LoadingOverlay() {
         <h2 id="loading-overlay-title" className="loading-overlay-title">
           {content.title}
         </h2>
-        <p id="loading-overlay-desc" className="loading-overlay-message">
-          {content.message}
-        </p>
+        {thinkingSteps ? (
+          <div id="loading-overlay-desc">
+            <ThinkingStepTicker
+              steps={thinkingSteps}
+              active
+              className="loading-overlay-thinking"
+              label="AI 분석 흐름"
+            />
+          </div>
+        ) : (
+          <p id="loading-overlay-desc" className="loading-overlay-message">
+            {content.message}
+          </p>
+        )}
         {content.hint && <p className="loading-overlay-hint">{content.hint}</p>}
 
         <div className="loading-overlay-bar" aria-hidden="true">

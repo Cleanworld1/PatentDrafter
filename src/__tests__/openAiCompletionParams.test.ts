@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   applyChatCompletionLimits,
   getReasoningEffortFromEnv,
-  resolveReasoningEffortForModel
+  resolveReasoningEffortForModel,
+  resolveReasoningEffortForProfile
 } from "@/lib/ai/openAiCompletionParams";
 
 describe("openAiCompletionParams", () => {
@@ -42,5 +43,19 @@ describe("openAiCompletionParams", () => {
     process.env.OPENAI_REASONING_EFFORT = "medium";
     expect(resolveReasoningEffortForModel("o3")).toBe("medium");
     expect(resolveReasoningEffortForModel("gpt-4o")).toBeUndefined();
+  });
+
+  it("uses low reasoning for analyze profile even when env is high", () => {
+    process.env.OPENAI_REASONING_EFFORT = "high";
+    const body = applyChatCompletionLimits({ model: "gpt-5.4", messages: [] }, "gpt-5.4", 16384, "analyze");
+    expect(body.reasoning_effort).toBe("low");
+    expect(body.max_completion_tokens).toBe(24576);
+  });
+
+  it("uses env reasoning for draft profile", () => {
+    process.env.OPENAI_REASONING_EFFORT = "high";
+    const body = applyChatCompletionLimits({ model: "gpt-5.4", messages: [] }, "gpt-5.4", 16384, "draft");
+    expect(body.reasoning_effort).toBe("high");
+    expect(resolveReasoningEffortForProfile("gpt-5.4", "analyze")).toBe("low");
   });
 });

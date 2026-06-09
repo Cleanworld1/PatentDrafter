@@ -78,7 +78,7 @@ export function buildGuidedDraftPlan(options: DraftOptions): GuidedDraftStep[] {
       kind: "refine_section",
       sectionId,
       mode: "rewrite",
-      label: `${sectionIdToTitle(sectionId)} — AI 작성`
+      label: `${sectionIdToTitle(sectionId)} — AI 작성·구체화`
     });
   }
 
@@ -89,7 +89,7 @@ export function buildGuidedDraftPlan(options: DraftOptions): GuidedDraftStep[] {
       kind: "refine_section",
       sectionId,
       mode: "rewrite",
-      label: `${sectionIdToTitle(sectionId)} — AI 작성`
+      label: `${sectionIdToTitle(sectionId)} — AI 작성·구체화`
     });
   }
 
@@ -99,7 +99,7 @@ export function buildGuidedDraftPlan(options: DraftOptions): GuidedDraftStep[] {
       kind: "refine_section",
       sectionId,
       mode: "rewrite",
-      label: `${sectionIdToTitle(sectionId)} — AI 작성`
+      label: `${sectionIdToTitle(sectionId)} — AI 작성·구체화`
     });
   }
 
@@ -110,7 +110,7 @@ export function buildGuidedDraftPlan(options: DraftOptions): GuidedDraftStep[] {
       kind: "refine_section",
       sectionId,
       mode: "rewrite",
-      label: `${sectionIdToTitle(sectionId)} — AI 작성`
+      label: `${sectionIdToTitle(sectionId)} — AI 작성·구체화`
     });
   }
 

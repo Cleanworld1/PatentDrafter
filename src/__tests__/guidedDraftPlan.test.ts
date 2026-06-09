@@ -17,6 +17,9 @@ describe("buildGuidedDraftPlan", () => {
     expect(plan.some((s) => s.kind === "detailed_outro")).toBe(true);
     expect(plan.some((s) => s.kind === "finalize")).toBe(true);
     expect(plan.some((s) => s.sectionId === "drawing_1" && s.mode === "elaborate")).toBe(false);
+    expect(plan.filter((s) => s.kind === "refine_section").every((s) => s.label.includes("작성·구체화"))).toBe(
+      true
+    );
   });
 
   it("includes chemical step when enabled", () => {

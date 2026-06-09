@@ -1538,6 +1538,7 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
     continueGuidedDraft: () => {
       const gd = get().guidedDraft;
       if (!gd?.active || !gd.awaitingContinue || get().loadingStage === "guided_step") return;
+      syncSpecificationDerived(set, get);
       get().saveCurrentProject();
       advanceGuidedDraftIndex(
         get as () => import("@/lib/workflow/executeGuidedDraftStep").GuidedDraftStoreSlice,

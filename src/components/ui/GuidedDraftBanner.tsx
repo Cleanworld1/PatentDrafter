@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { getThinkingStepsForGuidedStep } from "@/lib/client/analysisThinkingSteps";
+import { ThinkingStepTicker } from "@/components/ui/ThinkingStepTicker";
 import { sectionIdToTitle } from "@/types/specificationSection";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 
@@ -31,6 +33,9 @@ export function GuidedDraftBanner() {
   const stepNum = (guidedDraft?.stepIndex ?? 0) + 1;
   const total = guidedDraft?.totalSteps ?? 0;
   const label = guidedDraft?.currentStepLabel ?? refiningProgress;
+  const currentKind = guidedDraft?.steps[guidedDraft?.stepIndex ?? 0]?.kind;
+  const thinkingSteps = getThinkingStepsForGuidedStep(currentKind);
+  const showThinkingTicker = running && Boolean(thinkingSteps?.length);
   const focusTitle = guidedDraft?.focusSectionId
     ? sectionIdToTitle(guidedDraft.focusSectionId)
     : null;
@@ -48,13 +53,24 @@ export function GuidedDraftBanner() {
         <p className="guided-draft-banner-label">
           {stopped ? "단계별 작성이 중단되었습니다." : running ? `${label}…` : `${label} — 완료`}
         </p>
-        {awaiting && focusTitle && (
+        {awaiting && !stopped && (
           <p className="guided-draft-banner-hint">
-            「{focusTitle}」 항목을 확인한 뒤 계속을 누르세요.
+            {focusTitle
+              ? `「${focusTitle}」 항목을 확인하거나 다른 항목을 직접 수정할 수 있습니다. 확인 후 계속을 누르면 수정 내용이 반영된 채로 다음 항목을 작성합니다.`
+              : "내용을 확인·수정한 뒤 계속을 누르면 다음 단계로 진행합니다."}
           </p>
         )}
-        {running && (
-          <p className="guided-draft-banner-hint">AI 요청을 처리 중입니다. 잠시만 기다려 주세요.</p>
+        {showThinkingTicker ? (
+          <ThinkingStepTicker
+            steps={thinkingSteps!}
+            active={running}
+            className="guided-draft-thinking"
+            label="AI 분석 흐름"
+          />
+        ) : (
+          running && (
+            <p className="guided-draft-banner-hint">AI 요청을 처리 중입니다. 잠시만 기다려 주세요.</p>
+          )
         )}
       </div>
       <div className="guided-draft-banner-actions">

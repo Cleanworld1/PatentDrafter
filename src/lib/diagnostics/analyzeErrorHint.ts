@@ -24,5 +24,11 @@ export function inferErrorHint(message: string, context?: string): string | unde
   if (ctx.includes("analyze") && /timeout|timed out|abort/.test(m)) {
     return "분석 시간 초과. 파일 수·크기 줄이거나 모델/네트워크 상태 확인.";
   }
+  if (/input tokens exceed|configured limit|토큰/.test(m)) {
+    return "요청 토큰 한도 초과. 업로드 파일·PDF 수를 줄이거나 OPENAI_REASONING_EFFORT 를 medium/low 로 낮춰 보세요.";
+  }
+  if (/content가 없|응답 본문이 비어|reasoning/.test(m)) {
+    return "OPENAI_REASONING_EFFORT=high 일 때 추론만 하고 본문이 비는 경우가 있습니다. 발명 분석은 자동으로 low 를 쓰도록 수정됨 — dev 서버 재시작 후 재시도.";
+  }
   return undefined;
 }

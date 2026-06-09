@@ -90,7 +90,7 @@ export async function analyzeMaterialsWithAi(
     preparedForApi,
     { chemicalInventionEnabled: payload.options.chemicalInventionEnabled }
   );
-  const raw = await client.generateJsonFromParts(parts);
+  const raw = await client.generateJsonFromParts(parts, "analyze");
   const { data: parsed } = parseJsonWithFallback<InventionAnalysis>(raw, emptyInventionAnalysis);
   return { analysis: normalizeInventionAnalysis(parsed), prepared: preparedForApi };
 }

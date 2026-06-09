@@ -50,7 +50,7 @@ export async function analyzeChemicalEmbodimentsWithAi(
     preparedForApi,
     { chemicalInventionEnabled: true }
   );
-  const raw = await client.generateJsonFromParts(parts);
+  const raw = await client.generateJsonFromParts(parts, "analyze");
   const { data } = parseJsonWithFallback<ChemicalEmbodimentAnalysis>(
     raw,
     emptyChemicalEmbodimentAnalysis()

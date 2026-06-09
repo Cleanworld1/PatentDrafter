@@ -23,7 +23,9 @@ export async function streamOpenAiPlainText(
       messages,
       stream: true
     },
-    model
+    model,
+    undefined,
+    "draft"
   );
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
