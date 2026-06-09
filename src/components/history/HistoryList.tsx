@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { HistoryItem } from "@/components/history/HistoryItem";
 import { listHistory, searchHistory } from "@/lib/historyService";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
+import { useResponsiveLayoutStore } from "@/store/responsiveLayoutStore";
 
 export function HistoryList() {
   const [query, setQuery] = useState("");
@@ -12,6 +13,7 @@ export function HistoryList() {
   const historyVersion = usePatentDraftStore((s) => s.historyVersion);
   const loadProject = usePatentDraftStore((s) => s.loadProject);
   const deleteHistoryProject = usePatentDraftStore((s) => s.deleteHistoryProject);
+  const closePanels = useResponsiveLayoutStore((s) => s.closePanels);
 
   useEffect(() => {
     setMounted(true);
@@ -41,7 +43,10 @@ export function HistoryList() {
               key={entry.id}
               entry={entry}
               isActive={entry.id === currentId}
-              onSelect={() => loadProject(entry.snapshot)}
+              onSelect={() => {
+                loadProject(entry.snapshot);
+                closePanels();
+              }}
               onDelete={() => deleteHistoryProject(entry.id)}
             />
           ))

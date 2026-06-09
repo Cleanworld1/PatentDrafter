@@ -3,9 +3,12 @@
 import { HistoryList } from "@/components/history/HistoryList";
 import { NewDraftButton } from "@/components/history/NewDraftButton";
 import { ProjectTransferPanel } from "@/components/history/ProjectTransferPanel";
+import { LayoutPanelHeader } from "@/components/layout/LayoutPanelHeader";
+import { useResponsiveLayoutStore } from "@/store/responsiveLayoutStore";
 import { useSessionApiKeyStore } from "@/store/sessionApiKeyStore";
 
 export function Sidebar() {
+  const closePanels = useResponsiveLayoutStore((s) => s.closePanels);
   const serverFallbackAvailable = useSessionApiKeyStore((s) => s.serverFallbackAvailable);
   const devMockAllowed = useSessionApiKeyStore((s) => s.devMockAllowed);
   const configLoaded = useSessionApiKeyStore((s) => s.configLoaded);
@@ -22,7 +25,8 @@ export function Sidebar() {
           : "OpenAI · 미설정";
 
   return (
-    <aside className="sidebar">
+    <aside id="app-sidebar" className="sidebar">
+      <LayoutPanelHeader title="프로젝트" onClose={closePanels} />
       <div className="sidebar-header">
         <div className="sidebar-logo">Patent Draft AI</div>
         <p className="sidebar-subtitle">특허명세서 자동작성</p>

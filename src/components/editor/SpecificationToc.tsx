@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { dedupeSpecificationSections } from "@/lib/dedupeSpecificationSections";
+import { useResponsiveLayoutStore } from "@/store/responsiveLayoutStore";
 import type { SpecificationSection } from "@/types/patentDraft";
 
 function sectionDomId(sectionId: string): string {
@@ -13,8 +14,10 @@ interface SpecificationTocProps {
 }
 
 export function SpecificationToc({ sections }: SpecificationTocProps) {
+  const isCompact = useResponsiveLayoutStore((s) => s.isCompact);
   const tocSections = dedupeSpecificationSections(sections);
   const [activeId, setActiveId] = useState<string | null>(tocSections[0]?.section_id ?? null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const ids = tocSections.map((s) => sectionDomId(s.section_id));
@@ -46,9 +49,23 @@ export function SpecificationToc({ sections }: SpecificationTocProps) {
 
   if (tocSections.length === 0) return null;
 
+  const showList = !isCompact || expanded;
+
   return (
-    <nav className="spec-toc" aria-label="명세서 목차">
-      <p className="spec-toc-heading">목차</p>
+    <nav
+      className={`spec-toc${isCompact ? " spec-toc--compact" : ""}${expanded ? " spec-toc--expanded" : ""}`}
+      aria-label="명세서 목차"
+    >
+      <button
+        type="button"
+        className="spec-toc-toggle"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={showList}
+      >
+        <span className="spec-toc-heading">목차</span>
+        {isCompact && <span className="spec-toc-toggle-chevron">{expanded ? "▲" : "▼"}</span>}
+      </button>
+      {showList && (
       <ul className="spec-toc-list">
         {tocSections.map((section) => {
           const isDrawing = section.section_id.startsWith("drawing_");
@@ -73,6 +90,7 @@ export function SpecificationToc({ sections }: SpecificationTocProps) {
           );
         })}
       </ul>
+      )}
     </nav>
   );
 }

@@ -259,15 +259,15 @@ export type WorkspaceTab =
   | "markdown"
   | "json";
 
-export const WORKSPACE_TABS: { id: WorkspaceTab; label: string }[] = [
-  { id: "spec_edit", label: "명세서 편집" },
-  { id: "supplement_chat", label: "AI 보완" },
-  { id: "analysis", label: "발명 분석표" },
-  { id: "claims", label: "청구항" },
-  { id: "drawings", label: "도면 프롬프트" },
-  { id: "review", label: "정합성 검토" },
-  { id: "markdown", label: "전체 Markdown" },
-  { id: "json", label: "원본 데이터" }
+export const WORKSPACE_TABS: { id: WorkspaceTab; label: string; shortLabel?: string }[] = [
+  { id: "spec_edit", label: "명세서 편집", shortLabel: "명세서" },
+  { id: "supplement_chat", label: "AI 보완", shortLabel: "보완" },
+  { id: "analysis", label: "발명 분석표", shortLabel: "분석" },
+  { id: "claims", label: "청구항", shortLabel: "청구항" },
+  { id: "drawings", label: "도면 프롬프트", shortLabel: "도면" },
+  { id: "review", label: "정합성 검토", shortLabel: "검토" },
+  { id: "markdown", label: "전체 Markdown", shortLabel: "MD" },
+  { id: "json", label: "원본 데이터", shortLabel: "데이터" }
 ];
 
 export type LoadingStage =

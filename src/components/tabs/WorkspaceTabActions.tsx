@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { downloadSpecificationAsDocx } from "@/lib/exportSpecificationDocx";
+import { useResponsiveLayoutStore } from "@/store/responsiveLayoutStore";
 import { useSpecEditorViewportStore } from "@/store/specEditorViewportStore";
 import { usePatentDraftStore } from "@/store/patentDraftStore";
 import type { WorkspaceTab } from "@/types/patentDraft";
@@ -58,6 +59,7 @@ export function WorkspaceTabActions() {
   const setActiveTab = usePatentDraftStore((s) => s.setActiveTab);
   const fullscreen = useSpecEditorViewportStore((s) => s.fullscreen);
   const setFullscreen = useSpecEditorViewportStore((s) => s.setFullscreen);
+  const isCompact = useResponsiveLayoutStore((s) => s.isCompact);
   const [exporting, setExporting] = useState(false);
 
   const enterSpecFullscreen = () => {
@@ -87,21 +89,23 @@ export function WorkspaceTabActions() {
 
   return (
     <div className="workspace-tab-actions">
-      {saveHint && <span className="workspace-tab-action-hint">{saveHint}</span>}
-      <button
-        type="button"
-        className={`workspace-tab-icon-btn${fullscreen ? " is-active" : ""}`}
-        onClick={() => (fullscreen ? setFullscreen(false) : enterSpecFullscreen())}
-        title={
-          fullscreen
-            ? "전체화면 종료 (Esc)"
-            : "명세서 편집기 전체화면 (Esc로 종료, Ctrl+휠 확대/축소)"
-        }
-        aria-label={fullscreen ? "전체화면 종료" : "명세서 편집기 전체화면"}
-        aria-pressed={fullscreen}
-      >
-        <FullscreenIcon />
-      </button>
+      {saveHint && !isCompact && <span className="workspace-tab-action-hint">{saveHint}</span>}
+      {!isCompact && (
+        <button
+          type="button"
+          className={`workspace-tab-icon-btn${fullscreen ? " is-active" : ""}`}
+          onClick={() => (fullscreen ? setFullscreen(false) : enterSpecFullscreen())}
+          title={
+            fullscreen
+              ? "전체화면 종료 (Esc)"
+              : "명세서 편집기 전체화면 (Esc로 종료, Ctrl+휠 확대/축소)"
+          }
+          aria-label={fullscreen ? "전체화면 종료" : "명세서 편집기 전체화면"}
+          aria-pressed={fullscreen}
+        >
+          <FullscreenIcon />
+        </button>
+      )}
       <button
         type="button"
         className="workspace-tab-icon-btn"

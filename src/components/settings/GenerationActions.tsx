@@ -1,6 +1,7 @@
 "use client";
 
 import { usePatentDraftStore } from "@/store/patentDraftStore";
+import { useResponsiveLayoutStore } from "@/store/responsiveLayoutStore";
 import { useSessionApiKeyStore } from "@/store/sessionApiKeyStore";
 
 export function GenerationActions() {
@@ -17,8 +18,15 @@ export function GenerationActions() {
   const runGenerateSpec = usePatentDraftStore((s) => s.runGenerateSpec);
   const runReview = usePatentDraftStore((s) => s.runReview);
   const runFullDraft = usePatentDraftStore((s) => s.runFullDraft);
+  const isCompact = useResponsiveLayoutStore((s) => s.isCompact);
+  const closePanels = useResponsiveLayoutStore((s) => s.closePanels);
 
   const isLoading = loadingStage !== "";
+
+  const runAndFocusWorkspace = (action: () => void | Promise<void>) => {
+    if (isCompact) closePanels();
+    void action();
+  };
   const stage2Disabled = isLoading || !canRunAi || !hasAnalysis;
 
   return (
@@ -42,7 +50,7 @@ export function GenerationActions() {
         type="button"
         className="btn-primary btn-block"
         disabled={isLoading || !canRunAi}
-        onClick={() => void runAnalyze()}
+        onClick={() => runAndFocusWorkspace(runAnalyze)}
       >
         1단계: 발명 분석하기
       </button>
@@ -59,7 +67,7 @@ export function GenerationActions() {
                   ? "실시예/비교예 분석을 다시 실행합니다"
                   : undefined
             }
-            onClick={() => void runChemicalEmbodimentAnalyze()}
+            onClick={() => runAndFocusWorkspace(runChemicalEmbodimentAnalyze)}
           >
             2단계: 실시예/비교예 분석
             {hasEmbodimentAnalysis ? " (다시 실행)" : ""}
@@ -73,7 +81,7 @@ export function GenerationActions() {
         type="button"
         className="btn-accent btn-block"
         disabled={isLoading || !canRunAi}
-        onClick={() => void runFullDraft()}
+        onClick={() => runAndFocusWorkspace(runFullDraft)}
       >
         워크플로우 전체 자동 작성
       </button>
