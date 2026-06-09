@@ -12,6 +12,11 @@ import { isChemicalInventionEnabled } from "@/knowledge/chemicalInventionRules";
 import { resolveOpenAiCredentials, isDevMockWithoutKeyAllowed } from "@/lib/ai/resolveOpenAiCredentials";
 import type { AnalyzeMaterialsPayload } from "@/lib/fileInput/fileInputTypes";
 import { formatFullDraftMarkdown } from "@/lib/markdownFormatter";
+import {
+  buildDrawingPortfolioPlan,
+  layoutHintForRole,
+  resolveDrawingPortfolioSlot
+} from "@/lib/drawingPortfolioPlan";
 import { CLAIM_GUIDELINE } from "@/prompts/guidelines/claimGuideline";
 import type {
   ClaimDraft,
@@ -132,44 +137,13 @@ export function generateClaimDraft(ctx: WorkflowContext): ClaimDraft[] {
   });
 }
 
-function defaultDrawingTitles(category: string, count: number): string[] {
-  const system = ["전체 시스템 구성도", "핵심 장치/서버 구성도", "전체 처리 흐름도", "데이터/AI 처리 흐름도", "UI 또는 결과 제공 화면"];
-  const method = ["전체 시스템 구성도", "핵심 처리 흐름도", "세부 단계 흐름도", "데이터 처리 예시", "변형 실시예"];
-  const machine = ["전체 장치 사시도", "주요 구성 분해 사시도", "단면 또는 결합 관계도", "작동 상태도", "제어 흐름도"];
-  const pool = category.includes("방법") ? method : category.includes("기계") ? machine : system;
-  return Array.from({ length: count }, (_, i) => analysisDrawingFallback(i, pool));
-}
-
-function analysisDrawingFallback(index: number, pool: string[]): string {
-  return pool[index] ?? `도면 ${index + 1}`;
-}
-
 export function generateDrawingPlan(
   ctx: WorkflowContext,
   claimDrafts: ClaimDraft[]
 ): DrawingPlanItem[] {
   const category = inferInventionCategory(ctx);
   const count = Math.max(1, ctx.options.drawingCount);
-  const titles =
-    ctx.analysis.drawing_candidates.length >= count
-      ? ctx.analysis.drawing_candidates.slice(0, count)
-      : defaultDrawingTitles(category, count);
-
-  const types: DrawingPrompt["drawing_type"][] = ["시스템도", "구성도", "흐름도", "흐름도", "UI도"];
-
-  const basePlan = titles.map((title, index) => ({
-    figure_number: index + 1,
-    title,
-    purpose:
-      index === 0
-        ? "전체 발명의 주요 구성과 데이터 흐름을 도시한다."
-        : index === 2
-          ? "핵심 처리 단계 또는 동작 흐름을 도시한다."
-          : `${title}에 관한 세부 구성을 도시한다.`,
-    drawing_type: types[index] ?? "시스템도",
-    required_elements: ctx.analysis.essential_elements.slice(0, 6),
-    claim_support: index === 0 ? [1] : claimDrafts.length > 1 ? [1, Math.min(2, claimDrafts.length)] : [1]
-  }));
+  const basePlan = buildDrawingPortfolioPlan(count, claimDrafts, ctx.analysis, category);
 
   return appendGraphDrawingsToPlan(basePlan, ctx.chemicalEmbodimentAnalysis, count);
 }
@@ -179,22 +153,34 @@ export function generateDrawingPrompts(
   drawingPlan: DrawingPlanItem[],
   claimDrafts: ClaimDraft[]
 ): DrawingPrompt[] {
-  const base = drawingPlan.map((plan) => ({
-    figure_number: plan.figure_number,
-    title: plan.title,
-    drawing_type: plan.drawing_type,
-    purpose: plan.purpose,
-    claim_support: plan.claim_support,
-    required_elements: plan.required_elements,
-    relative_layout:
-      plan.figure_number === 1
-        ? "좌측 입력, 중앙 처리 모듈, 우측 출력을 배치한다."
-        : "주요 구성요소를 박스로 표시하고 처리 순서대로 화살표를 연결한다.",
-    arrows_or_connections: "데이터 및 제어 흐름 방향을 화살표로 표시한다.",
-    reference_number_guidance:
-      "구성요소마다 하나의 참조번호만 부여(동일 구성 중복 부호 금지). 동일 번호는 동일 구성만 가리킴. 100번대 구성요소, 200번대 데이터 흐름.",
-    style_instruction: STYLE
-  }));
+  const category = inferInventionCategory(ctx);
+  const count = Math.max(1, ctx.options.drawingCount);
+
+  const base = drawingPlan.map((plan) => {
+    const slot = resolveDrawingPortfolioSlot(
+      plan.figure_number,
+      count,
+      claimDrafts,
+      ctx.analysis,
+      category
+    );
+    return {
+      figure_number: plan.figure_number,
+      title: plan.title,
+      drawing_type: plan.drawing_type,
+      purpose: plan.purpose,
+      claim_support: plan.claim_support,
+      required_elements: plan.required_elements,
+      relative_layout: layoutHintForRole(slot.role),
+      arrows_or_connections:
+        slot.role === "claim1_flowchart" || slot.role === "dependent_flowchart"
+          ? "단계 간 순차 흐름을 화살표로 연결. 분기는 마름모로 짧게 표시."
+          : "데이터 및 제어 흐름 방향을 화살표로 표시한다.",
+      reference_number_guidance:
+        "구성요소마다 하나의 참조번호만 부여(동일 구성 중복 부호 금지). 동일 번호는 동일 구성만 가리킴. 100번대 구성요소, 200번대 데이터 흐름.",
+      style_instruction: STYLE
+    };
+  });
 
   return appendGraphDrawingPrompts(
     base,

@@ -13,6 +13,11 @@ import {
 } from "@/lib/client/supplementChatBlobRegistry";
 import { validateMaterialsForAnalyze } from "@/lib/client/validateMaterialsUpload";
 import { buildReviewSummary, buildSpecContextSummary } from "@/lib/supplement/buildSpecContextSummary";
+import { ensureSectionsForSupplementUpdates } from "@/lib/supplement/ensureSectionsForSupplementUpdates";
+import {
+  cleanSupplementReplyForDisplay,
+  coerceSupplementSectionUpdates
+} from "@/lib/supplement/parseSupplementSectionUpdates";
 import { formatFetchError, parseApiErrorResponse } from "@/lib/client/parseApiError";
 import { assertCanRunAi } from "@/store/sessionApiKeyStore";
 import {
@@ -402,7 +407,7 @@ interface PatentDraftState {
   addSupplementAttachment: (file: UploadedFile) => void;
   removeSupplementAttachment: (id: string) => void;
   sendSupplementMessage: (text: string) => Promise<void>;
-  applySupplementUpdates: (updates: SupplementSectionUpdate[]) => void;
+  applySupplementUpdates: (updates: SupplementSectionUpdate[], messageId?: string) => void;
   clearSupplementChat: () => void;
 
   getStatusLabel: () => string;
@@ -1106,16 +1111,57 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
       get().initSupplementChatWelcome();
     },
 
-    applySupplementUpdates: (updates) => {
-      if (!updates.length) return;
+    applySupplementUpdates: (updates, messageId) => {
+      if (!updates.length) {
+        set({ error: "반영할 수정안이 없습니다." });
+        return;
+      }
+
+      const state = get();
+      const ensured = ensureSectionsForSupplementUpdates(
+        state.specificationSections,
+        updates,
+        state.options,
+        state.claims,
+        state.drawingPrompts
+      );
       const now = new Date().toISOString();
-      set((state) => ({
-        specificationSections: state.specificationSections.map((s) => {
-          const hit = updates.find((u) => u.section_id === s.section_id);
-          if (!hit?.content) return s;
-          return { ...s, content: hit.content, lastUpdatedAt: now, isModified: true };
-        })
-      }));
+      const appliedIds: string[] = [];
+
+      const nextSections = ensured.sections.map((s) => {
+        const hit = updates.find((u) => u.section_id === s.section_id);
+        if (!hit?.content?.trim()) return s;
+        appliedIds.push(s.section_id);
+        return { ...s, content: hit.content.trim(), lastUpdatedAt: now, isModified: true };
+      });
+
+      if (!appliedIds.length) {
+        set({
+          error:
+            "명세서 항목을 찾지 못했습니다. AI가 제안한 section_id가 올바른지 확인하거나, 다시 요청해 주세요."
+        });
+        return;
+      }
+
+      set({
+        specificationSections: nextSections,
+        options: { ...state.options, ...ensured.options },
+        claims: ensured.claims,
+        drawingPrompts: ensured.drawingPrompts,
+        error: "",
+        supplementChatMessages: messageId
+          ? state.supplementChatMessages.map((m) =>
+              m.id === messageId
+                ? {
+                    ...m,
+                    appliedSectionIds: [
+                      ...new Set([...(m.appliedSectionIds ?? []), ...appliedIds])
+                    ]
+                  }
+                : m
+            )
+          : state.supplementChatMessages
+      });
       syncSpecificationDerived(set, get);
       get().saveCurrentProject();
     },
@@ -1195,13 +1241,12 @@ export const usePatentDraftStore = create<PatentDraftState>((set, get) => {
           );
         }
         const data = (await response.json()) as SupplementChatResponsePayload;
-        const updates = (data.section_updates ?? []).filter(
-          (u) => u.section_id && typeof u.content === "string" && u.content.trim()
-        );
+        const reply = data.reply?.trim() || "응답을 받지 못했습니다.";
+        const updates = coerceSupplementSectionUpdates(reply, data.section_updates);
         const assistantMsg: SupplementChatMessage = {
           id: createSupplementMessageId(),
           role: "assistant",
-          content: data.reply?.trim() || "응답을 받지 못했습니다.",
+          content: cleanSupplementReplyForDisplay(reply, updates),
           at: new Date().toISOString(),
           sectionUpdates: updates.length ? updates : undefined
         };

@@ -2842,6 +2842,19 @@ body.spec-editor-fullscreen-active .tab-content {
   color: var(--muted);
 }
 
+.supplement-chat-update-preview {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.supplement-chat-error {
+  margin: 8px 0 0;
+}
+
 .supplement-chat-composer {
   flex-shrink: 0;
   border-top: 1px solid var(--border);

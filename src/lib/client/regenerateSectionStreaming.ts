@@ -7,6 +7,14 @@ import {
   resolveSectionConciseInstruction,
   resolveSectionRewriteInstruction
 } from "@/lib/regenerateSectionContext";
+import {
+  pruneAnalysisForRegenerate,
+  pruneClaimsForRegenerate,
+  pruneDrawingContextForRegenerate,
+  pruneSpecificationSectionsForRequest,
+  shouldIncludeChemicalEmbodiment,
+  shouldIncludeChemicalFormulaCatalog
+} from "@/lib/regeneratePromptPruning";
 import { isChemicalInventionEnabled } from "@/knowledge/chemicalInventionRules";
 import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 import type {
@@ -74,24 +82,35 @@ export function buildRegenerateSectionRequestBody(
   userInstruction: string,
   options: { replaceFresh: boolean; currentContent: string }
 ) {
+  const sectionType = sectionIdToType(sectionId);
   const liveClaims = buildLiveClaimsFromSections(state.specificationSections, state.claims);
+  const prunedClaims = pruneClaimsForRegenerate(sectionId, liveClaims);
+  const rawSections = state.specificationSections.map((s) => ({
+    section_id: s.section_id,
+    content: s.section_id === sectionId && options.replaceFresh ? "" : s.content
+  }));
+
+  const includeChemicalEmbodiment = shouldIncludeChemicalEmbodiment(sectionType);
+  const includeFormulaCatalog =
+    shouldIncludeChemicalFormulaCatalog(sectionType) &&
+    isChemicalInventionEnabled(state.options.chemicalInventionEnabled);
 
   return {
     sectionId,
-    sectionType: sectionIdToType(sectionId),
+    sectionType,
     currentContent: options.replaceFresh ? "" : options.currentContent,
-    analysis: state.analysis,
-    relatedClaims: liveClaims,
-    specificationSections: state.specificationSections.map((s) => ({
-      section_id: s.section_id,
-      content: s.section_id === sectionId && options.replaceFresh ? "" : s.content
-    })),
+    analysis: pruneAnalysisForRegenerate(sectionType, state.analysis),
+    relatedClaims: prunedClaims,
+    specificationSections: pruneSpecificationSectionsForRequest(rawSections, sectionId),
     userInstruction,
-    drawingContext: buildCurrentDrawingContext(state.specificationSections, state.drawingPrompts),
+    drawingContext: pruneDrawingContextForRegenerate(
+      buildCurrentDrawingContext(state.specificationSections, state.drawingPrompts),
+      sectionId
+    ),
     inventionMakingEnabled: state.options.inventionMakingEnabled,
     chemicalInventionEnabled: state.options.chemicalInventionEnabled,
-    chemicalEmbodimentAnalysis: state.chemicalEmbodimentAnalysis,
-    chemicalFormulaCatalog: isChemicalInventionEnabled(state.options.chemicalInventionEnabled)
+    chemicalEmbodimentAnalysis: includeChemicalEmbodiment ? state.chemicalEmbodimentAnalysis : null,
+    chemicalFormulaCatalog: includeFormulaCatalog
       ? buildChemicalFormulaCatalog(state.uploadedFiles)
       : []
   };

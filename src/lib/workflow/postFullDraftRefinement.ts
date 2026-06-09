@@ -1,3 +1,5 @@
+import { getDrawingLayoutRulesBlock } from "@/knowledge/drawingLayoutRules";
+import { getDrawingPortfolioRulesBlock } from "@/knowledge/drawingPortfolioRules";
 import { getDrawingReferenceNumberRulesBlock } from "@/knowledge/drawingReferenceNumberRules";
 import { getPatentExaminerRulesBlockBySectionId } from "@/knowledge/patentExaminerDraftingRules";
 
@@ -19,10 +21,15 @@ const REWRITE_DEFAULT =
 
 const DRAWING_REF_RULES = getDrawingReferenceNumberRulesBlock();
 
+const DRAWING_LAYOUT = getDrawingLayoutRulesBlock();
+
+const DRAWING_PORTFOLIO = getDrawingPortfolioRulesBlock();
+
 const DRAWING_REWRITE =
   "실제 도면 이미지를 생성·묘사하지 말라. 도면 작성자가 특허 도면을 그릴 수 있도록 **간결한** 텍스트 프롬프트만 작성하라. " +
-  "핵심 구성요소·상대 배치·연결·화살표 의미·참조부호·흑백 선도 스타일만 짧게 적고, 화면/블록/단계를 과도하게 세분·나열하지 말라." +
-  `\n\n${DRAWING_REF_RULES}`;
+  "핵심 구성요소·상대 배치·연결·화살표 의미·참조부호·흑백 선도 스타일만 짧게 적고, 화면/블록/단계를 과도하게 세분·나열하지 말라. " +
+  "도면 번호에 맞는 역할(전체 구성/시스템, 청구항 1 흐름, 종속항 세부)을 반드시 따른다." +
+  `\n\n${DRAWING_PORTFOLIO}\n\n${DRAWING_LAYOUT}\n\n${DRAWING_REF_RULES}`;
 
 const DRAWING_ELABORATE = DRAWING_REWRITE;
 

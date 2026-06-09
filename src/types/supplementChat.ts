@@ -13,6 +13,8 @@ export interface SupplementChatMessage {
   at: string;
   attachmentNames?: string[];
   sectionUpdates?: SupplementSectionUpdate[];
+  /** 반영 완료된 section_id 목록 (UI 피드백용) */
+  appliedSectionIds?: string[];
 }
 
 export interface SupplementChatRequestPayload {

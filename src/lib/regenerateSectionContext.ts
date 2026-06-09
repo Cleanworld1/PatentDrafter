@@ -1,4 +1,7 @@
+import { getDrawingLayoutRulesBlock } from "@/knowledge/drawingLayoutRules";
+import { getDrawingPortfolioRulesBlock, getFigurePortfolioInstruction } from "@/knowledge/drawingPortfolioRules";
 import { getDrawingReferenceNumberRulesBlock } from "@/knowledge/drawingReferenceNumberRules";
+import { getDrawingSectionNumbers } from "@/lib/specificationSectionOrder";
 import {
   getDefaultElaborateInstruction,
   getDefaultRewriteInstruction
@@ -7,8 +10,8 @@ import type { CurrentDrawingContext } from "@/lib/drawingContextForRegenerate";
 import type { ClaimDraft, DrawingPrompt, InventionAnalysis, SpecificationSection } from "@/types/patentDraft";
 import { sectionIdToTitle } from "@/types/specificationSection";
 
-const WRITTEN_SPEC_SECTION_MAX = 2500;
-const WRITTEN_SPEC_TOTAL_MAX = 22_000;
+const WRITTEN_SPEC_SECTION_MAX = 800;
+const WRITTEN_SPEC_TOTAL_MAX = 6000;
 
 export function parseDrawingSectionNumber(sectionId: string): number | null {
   const m = sectionId.match(/^drawing_(\d+)$/);
@@ -78,8 +81,8 @@ export function formatClaimRegenerateContext(
       : "(아직 선행 청구항 없음 — 발명 분석표 기반으로 작성)";
 
   const supportBlock = [
-    means && `【과제의 해결 수단】 요약:\n${means.slice(0, 2000)}`,
-    detailed && `【구체적인 내용】 요약:\n${detailed.slice(0, 2000)}`
+    means && `【과제의 해결 수단】 요약:\n${means.slice(0, 900)}`,
+    detailed && `【구체적인 내용】 요약:\n${detailed.slice(0, 900)}`
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -135,13 +138,14 @@ export function formatWrittenSpecificationContext(
 }
 
 const FRESH_REWRITE_LEAD =
-  "현재 항목 본문은 비워 두었으므로, [이미 작성된 명세서 전체]를 참고하여 **처음부터 전체를 새로** 작성하라. 이전 본문 문장을 그대로 반복·붙여넣지 말라. ";
+  "현재 항목 본문은 비워 두었으므로, [관련 명세서 항목]을 참고하여 **처음부터 전체를 새로** 작성하라. 이전 본문 문장을 그대로 반복·붙여넣지 말라. ";
 
 const PATENT_KOREAN_STYLE =
   "국내 특허명세서 문체로 **한국어**만 사용하라. ";
 
 export const IMAGE_AI_DRAWING_NOTE =
-  "이미지 생성 AI(Genspark 등)가 글자·도형을 깨뜨리거나 미완성으로 그리지 않도록, 구성요소 명칭을 명확한 한글로 적고 생략 부호(…)·플레이스홀더·'TBD'·'추후 작성' 등 불완전 표현을 쓰지 말라. 흑백 특허 선도 한 장을 완결되게 그릴 수 있는 수준으로 지시하라. ";
+  "이미지 생성 AI(Genspark 등)가 글자·도형을 깨뜨리거나 미완성으로 그리지 않도록, 구성요소 명칭을 명확한 한글로 적고 생략 부호(…)·플레이스홀더·'TBD'·'추후 작성' 등 불완전 표현을 쓰지 말라. " +
+  "한 장에 블록 8개 이하, 네모 블록에는 구성요소 이름만(2~6단어), 마름모에는 조건·분기만 한 줄, 블록 안 장문·다중 글씨 나열 금지. A4 한 장 비율·충분한 여백을 명시하라. ";
 
 function wrapFreshSectionInstruction(base: string, isDrawing: boolean): string {
   let text = `${FRESH_REWRITE_LEAD}${PATENT_KOREAN_STYLE}${base}`;
@@ -210,7 +214,13 @@ export function buildClaimRewriteUserInstruction(
 
 export function buildDrawingRewriteUserInstruction(
   figureNumber: number,
-  drawingPrompt?: DrawingPrompt
+  drawingPrompt?: DrawingPrompt,
+  context?: {
+    drawingCount?: number;
+    claims?: ClaimDraft[];
+    analysis?: InventionAnalysis;
+    inventionCategory?: string;
+  }
 ): string {
   const meta = drawingPrompt
     ? `도면 제목: ${drawingPrompt.title}. 유형: ${drawingPrompt.drawing_type}. 목적: ${drawingPrompt.purpose}. ` +
@@ -218,7 +228,20 @@ export function buildDrawingRewriteUserInstruction(
       `청구항 지지: ${(drawingPrompt.claim_support ?? []).map((n) => `청구항 ${n}`).join(", ") || "없음"}.`
     : "";
 
+  const portfolioBlock =
+    context?.drawingCount && context.claims?.length && context.analysis
+      ? `\n\n${getFigurePortfolioInstruction(
+          figureNumber,
+          context.drawingCount,
+          context.claims,
+          context.analysis,
+          context.inventionCategory
+        )}`
+      : "";
+
   const refRules = getDrawingReferenceNumberRulesBlock();
+  const layoutRules = getDrawingLayoutRulesBlock();
+  const portfolioRules = getDrawingPortfolioRulesBlock();
 
   return wrapFreshSectionInstruction(
     `【도 ${figureNumber}】 한 장에 대한 **간결한** 도면 작성 프롬프트만 작성하라. ` +
@@ -226,16 +249,23 @@ export function buildDrawingRewriteUserInstruction(
       "실제 그림을 그리지 말고, 도면 작성자/이미지 AI가 그릴 수 있는 짧은 텍스트 지시만 쓰라. " +
       "화면·블록·단계·데이터 흐름을 항목별로 길게 나열하지 말고, 핵심 구성과 배치·연결만 적어라. " +
       meta +
-      `\n\n${refRules}`,
+      portfolioBlock +
+      `\n\n${portfolioRules}\n\n${layoutRules}\n\n${refRules}`,
     true
   );
 }
 
 export function buildDrawingElaborateUserInstruction(
   figureNumber: number,
-  drawingPrompt?: DrawingPrompt
+  drawingPrompt?: DrawingPrompt,
+  context?: {
+    drawingCount?: number;
+    claims?: ClaimDraft[];
+    analysis?: InventionAnalysis;
+    inventionCategory?: string;
+  }
 ): string {
-  return buildDrawingRewriteUserInstruction(figureNumber, drawingPrompt);
+  return buildDrawingRewriteUserInstruction(figureNumber, drawingPrompt, context);
 }
 
 export function resolveSectionConciseInstruction(
@@ -267,6 +297,7 @@ export function resolveSectionRewriteInstruction(
     specificationSections: SpecificationSection[];
     claims: ClaimDraft[];
     drawingPrompts: DrawingPrompt[];
+    inventionCategory?: string;
   },
   mode: "rewrite" | "elaborate"
 ): string {
@@ -276,15 +307,22 @@ export function resolveSectionRewriteInstruction(
     ? state.drawingPrompts.find((d) => d.figure_number === figureNum)
     : undefined;
   const liveClaims = buildLiveClaimsFromSections(state.specificationSections, state.claims);
+  const drawingCount = getDrawingSectionNumbers(state.specificationSections).length;
+  const drawingContext = {
+    drawingCount: Math.max(drawingCount, state.drawingPrompts.length, 1),
+    claims: liveClaims,
+    analysis: state.analysis,
+    inventionCategory: state.inventionCategory
+  };
 
   if (mode === "rewrite" && claimNum) {
     return buildClaimRewriteUserInstruction(claimNum, state.analysis, liveClaims);
   }
   if (mode === "rewrite" && figureNum) {
-    return buildDrawingRewriteUserInstruction(figureNum, drawingPrompt);
+    return buildDrawingRewriteUserInstruction(figureNum, drawingPrompt, drawingContext);
   }
   if (mode === "elaborate" && figureNum) {
-    return buildDrawingElaborateUserInstruction(figureNum, drawingPrompt);
+    return buildDrawingElaborateUserInstruction(figureNum, drawingPrompt, drawingContext);
   }
   return mode === "rewrite"
     ? wrapFreshSectionInstruction(getDefaultRewriteInstruction(sectionId), false)

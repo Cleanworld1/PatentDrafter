@@ -11,6 +11,7 @@ import { getChemicalInventionRulesBlock } from "@/knowledge/chemicalInventionRul
 import type { UploadedFile } from "@/types/patentDraft";
 import { getChemicalInventionMakingRulesBlock } from "@/knowledge/chemicalInventionMakingRules";
 import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
+import { getDrawingPortfolioRulesBlock } from "@/knowledge/drawingPortfolioRules";
 import { getInventionMakingRulesBlock } from "@/knowledge/inventionMakingRules";
 import type { DraftOptions, GenerateSpecOptions, InventionAnalysis } from "@/types/patentDraft";
 
@@ -78,6 +79,8 @@ ${chemicalInvention ? getChemicalEmbodimentAnalysisBlock(input.chemicalEmbodimen
 
 요구 청구항 수: ${options.desiredClaimCount}
 요구 도면 수: ${options.desiredDrawingCount}
+
+${getDrawingPortfolioRulesBlock()}
 
 발명 분석표:
 ${JSON.stringify(analysis, null, 2)}

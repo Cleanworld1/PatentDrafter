@@ -20,13 +20,23 @@ import {
   getDrawingCountMatchRule,
   type CurrentDrawingContext
 } from "@/lib/drawingContextForRegenerate";
+import { getDrawingLayoutRulesBlock } from "@/knowledge/drawingLayoutRules";
+import { getDrawingPortfolioRulesBlock } from "@/knowledge/drawingPortfolioRules";
 import {
   formatClaimRegenerateContext,
   formatSingleDrawingContextBlock,
-  formatWrittenSpecificationContext,
   parseClaimSectionNumber,
   parseDrawingSectionNumber
 } from "@/lib/regenerateSectionContext";
+import {
+  formatCompactAnalysisForSection,
+  formatPrunedWrittenSpecificationContext,
+  getRelatedSectionIdsForRegenerate,
+  pruneAnalysisForRegenerate,
+  shouldIncludeChemicalEmbodiment,
+  shouldIncludeChemicalFormulaCatalog,
+  shouldIncludeDrawingContext
+} from "@/lib/regeneratePromptPruning";
 import { getSectionOutputNoHeadingRule } from "@/lib/sectionOutputSanitizer";
 import type { ChemicalEmbodimentAnalysis } from "@/types/chemicalEmbodimentAnalysis";
 import type { ClaimDraft, InventionAnalysis } from "@/types/patentDraft";
@@ -50,32 +60,44 @@ export interface RegenerateSectionPromptInput {
   specificationSections?: Array<{ section_id: string; content: string }>;
 }
 
+function clipClaimText(text: string, max = 400): string {
+  const t = text.trim();
+  return t.length <= max ? t : `${t.slice(0, max)}…`;
+}
+
 export function buildRegenerateSectionPrompt(input: RegenerateSectionPromptInput): string {
+  const sectionId = input.sectionId ?? "";
   const claimNum =
-    input.sectionType === "claim" ? parseClaimSectionNumber(input.sectionId ?? "") : null;
+    input.sectionType === "claim" ? parseClaimSectionNumber(sectionId) : null;
 
   const figureNum =
-    input.sectionType === "drawing_prompt"
-      ? parseDrawingSectionNumber(input.sectionId ?? "")
-      : null;
+    input.sectionType === "drawing_prompt" ? parseDrawingSectionNumber(sectionId) : null;
+
+  const prunedAnalysis = pruneAnalysisForRegenerate(input.sectionType, input.analysis);
+  const analysisBlock = formatCompactAnalysisForSection(input.sectionType, prunedAnalysis);
+  const allSections = input.specificationSections ?? [];
+  const relatedIds = getRelatedSectionIdsForRegenerate(sectionId, allSections);
 
   let claimsText = "(없음)";
   if (input.sectionType === "claim" && claimNum && input.relatedClaims?.length) {
     claimsText = formatClaimRegenerateContext(
       claimNum,
       input.relatedClaims,
-      input.analysis,
-      (input.specificationSections ?? []) as import("@/types/patentDraft").SpecificationSection[]
+      prunedAnalysis,
+      allSections as import("@/types/patentDraft").SpecificationSection[]
     );
   } else if (input.relatedClaims && input.relatedClaims.length > 0) {
     claimsText = input.relatedClaims
-      .map((c) => `청구항 ${c.claim_number} (${c.category}): ${c.text}`)
+      .map(
+        (c) =>
+          `청구항 ${c.claim_number} (${c.category}): ${clipClaimText(c.text, c.claim_number === 1 ? 600 : 300)}`
+      )
       .join("\n");
   }
 
   const guideline = getSectionGuideline(input.sectionType);
   let drawingBlock = "";
-  if (input.drawingContext) {
+  if (input.drawingContext && shouldIncludeDrawingContext(input.sectionType)) {
     drawingBlock =
       figureNum != null
         ? `\n\n${formatSingleDrawingContextBlock(input.drawingContext, figureNum)}`
@@ -88,10 +110,14 @@ export function buildRegenerateSectionPrompt(input: RegenerateSectionPromptInput
       ? `\n\n${getDrawingCountMatchRule(input.sectionType, input.drawingContext)}`
       : "";
 
-  const writtenSpecBlock = formatWrittenSpecificationContext(
-    (input.specificationSections ?? []) as import("@/types/patentDraft").SpecificationSection[],
-    input.sectionId
+  const writtenSpecBlock = formatPrunedWrittenSpecificationContext(
+    allSections,
+    sectionId,
+    relatedIds
   );
+
+  const includeChemicalEmbodiment = shouldIncludeChemicalEmbodiment(input.sectionType);
+  const includeFormulaCatalog = shouldIncludeChemicalFormulaCatalog(input.sectionType);
 
   return `너는 국내 특허명세서의 특정 항목을 보완 작성하는 AI이다.
 
@@ -99,10 +125,10 @@ export function buildRegenerateSectionPrompt(input: RegenerateSectionPromptInput
 ${input.sectionTitle}
 
 [현재 내용]
-${input.currentContent?.trim() ? input.currentContent : "(비어 있음 — [이미 작성된 명세서 전체]를 참고하여 대상 항목을 처음부터 새로 작성하라.)"}
+${input.currentContent?.trim() ? input.currentContent : "(비어 있음 — [관련 명세서 항목]을 참고하여 대상 항목을 처음부터 새로 작성하라.)"}
 
-[발명 분석표]
-${JSON.stringify(input.analysis, null, 2)}
+[발명 분석 요약]
+${analysisBlock}
 
 [관련 청구항]
 ${claimsText}${drawingBlock}${drawingCountRule}
@@ -122,31 +148,39 @@ ${getInventionMakingRulesBlock(input.inventionMakingEnabled)}
 
 ${getInventionMakingSectionNote(input.sectionType, input.inventionMakingEnabled)}
 
-${getChemicalInventionRulesBlock(
-  input.chemicalInventionEnabled,
-  input.chemicalFormulaCatalog ?? []
-)}
+${includeFormulaCatalog
+  ? getChemicalInventionRulesBlock(
+      input.chemicalInventionEnabled,
+      input.chemicalFormulaCatalog ?? []
+    )
+  : ""}
 
-${getChemicalInventionMakingRulesBlock(
-  input.chemicalInventionEnabled,
-  input.inventionMakingEnabled
-)}
+${includeChemicalEmbodiment
+  ? getChemicalInventionMakingRulesBlock(
+      input.chemicalInventionEnabled,
+      input.inventionMakingEnabled
+    )
+  : ""}
 
 ${getChemicalInventionSectionNote(input.sectionType, input.chemicalInventionEnabled)}
 
-${getChemicalInventionMakingSectionNote(
-  input.sectionType,
-  input.chemicalInventionEnabled,
-  input.inventionMakingEnabled
-)}
+${includeChemicalEmbodiment
+  ? getChemicalInventionMakingSectionNote(
+      input.sectionType,
+      input.chemicalInventionEnabled,
+      input.inventionMakingEnabled
+    )
+  : ""}
 
-${getChemicalEmbodimentAnalysisBlock(input.chemicalEmbodimentAnalysis)}
+${includeChemicalEmbodiment
+  ? getChemicalEmbodimentAnalysisBlock(input.chemicalEmbodimentAnalysis)
+  : ""}
 
 위 정보를 바탕으로 대상 항목만 다시 작성하라.
 
 주의:
 - 다른 항목은 출력하지 말라.
-- [이미 작성된 명세서 전체]와 용어·논리·순서가 일치하도록 작성하라.
+- [관련 명세서 항목]과 용어·논리·순서가 일치하도록 작성하라.
 - 현재 내용의 장점을 유지하되, 사용자 요청에 맞게 보완하라.
 - 청구항과 용어가 일치하도록 작성하라.
 ${
@@ -166,6 +200,6 @@ ${getChemicalInventionRegenerateNote(input.chemicalInventionEnabled)}`
 ${getSectionOutputNoHeadingRule(input.sectionTitle)}
 
 출력 형식: 대상 항목 본문만 평문(한국어)으로 반환하라. JSON 객체·키·중괄호·따옴표로 감싼 구조는 절대 출력하지 말라. 【…】 형식의 항목 제목·소제목은 출력하지 말라.
-${input.sectionType === "drawing_prompt" ? `도면 생성용 텍스트 프롬프트이므로 title/purpose 등 필드명 없이 **간결한** 설명문만 작성하라. 화면·블록·단계를 과도하게 세분·나열하지 말라. Genspark 등 이미지 AI가 글자·도형을 깨뜨리지 않도록 구성요소명은 명확한 한글로, 미완성·플레이스홀더 없이 작성하라.${figureNum != null ? ` 오직 도 ${figureNum} 한 장에 대한 프롬프트만 출력하고, 다른 도면 번호의 문단·프롬프트를 포함하지 말라.` : ""}` : ""}
+${input.sectionType === "drawing_prompt" ? `도면 생성용 텍스트 프롬프트이므로 title/purpose 등 필드명 없이 **간결한** 설명문만 작성하라. ${getDrawingPortfolioRulesBlock()} ${getDrawingLayoutRulesBlock()} Genspark 등 이미지 AI가 글자·도형을 깨뜨리지 않도록 구성요소명은 명확한 한글로, 미완성·플레이스홀더 없이 작성하라.${figureNum != null ? ` 오직 도 ${figureNum} 한 장에 대한 프롬프트만 출력하고, 다른 도면 번호의 문단·프롬프트를 포함하지 말라.` : ""}` : ""}
 ${input.sectionType === "claim" ? "청구항 본문만 출력하라. 목차에 이미 【청구항 N】이 있으므로 \"청구항 N.\" / \"청구항 N:\" 머리말은 쓰지 말고, 독립항은 \"…에 있어서,\"로 바로 시작하라." : ""}`;
 }
